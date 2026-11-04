@@ -1,0 +1,5 @@
+{
+  "ok": false,
+  "error": "timeout",
+  "message": "La jugada llegó 412 ms después del límite."
+}

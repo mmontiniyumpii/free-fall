@@ -1,0 +1,5 @@
+{
+  "ok": false,
+  "error": "illegal_move",
+  "message": "La columna 3 está llena."
+}

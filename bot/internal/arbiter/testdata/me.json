@@ -1,0 +1,28 @@
+{
+  "team": {
+    "id": "eq3",
+    "name": "Los Recursivos",
+    "members": [
+      "Mauricio Estuardo Batres Montejo",
+      "José Danilo Alvarado Zamora",
+      "Luis Fernando Rivas Colaj",
+      "Matias Javier Montini"
+    ]
+  },
+  "standing": {
+    "position": 2,
+    "played": 6,
+    "won": 4,
+    "drawn": 1,
+    "lost": 1,
+    "points": 13
+  },
+  "pending_turns": [
+    "g_7f3a"
+  ],
+  "submission": {
+    "repo_url": "https://github.com/equipo3/cuatro-en-linea",
+    "commit": "a1b2c3d",
+    "registered_at": "2026-11-05T15:40:00Z"
+  }
+}
