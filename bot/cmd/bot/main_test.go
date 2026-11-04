@@ -4,7 +4,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mmontiniyumpii/free-fall/bot/internal/arbiter"
 	"github.com/mmontiniyumpii/free-fall/bot/internal/engine"
 	"github.com/mmontiniyumpii/free-fall/bot/internal/game"
 )
@@ -21,19 +20,7 @@ func (f *fakeEngine) choose(_ game.Board, _ game.Player, legal []game.Column, op
 	return engine.Result{Column: legal[len(legal)-1], Depth: 9, Nodes: 1234}
 }
 
-// El torneo juega siempre sin límite de profundidad: la dificultad es solo de la app (docs/TECNICO.md, D1).
-func TestArbiterAlwaysPlaysWithoutDepthLimit(t *testing.T) {
-	var f fakeEngine
-	choose := arbiterChooser(f.choose, 1500*time.Millisecond)
-	got := choose(arbiter.Turn{You: 2, LegalMoves: []game.Column{1, 4}})
-
-	if len(f.opts) != 1 || f.opts[0] != (engine.Options{Budget: 1500 * time.Millisecond, MaxDepth: 0}) {
-		t.Errorf("opciones = %+v, want Budget 1.5s y MaxDepth 0", f.opts)
-	}
-	if got != (arbiter.Choice{Column: 4, Depth: 9, Nodes: 1234}) {
-		t.Errorf("choice = %+v", got)
-	}
-}
+// El test de que el árbitro juega siempre con MaxDepth = 0 vive en internal/arbiter (chooser_test.go).
 
 func TestLocalChooserPassesDifficultyDepth(t *testing.T) {
 	var f fakeEngine

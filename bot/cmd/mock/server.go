@@ -51,6 +51,8 @@ func (s *server) routes() http.Handler {
 	// Públicos: sin token.
 	mux.HandleFunc("GET /api/games/{game_id}", s.handleGame)
 	mux.HandleFunc("GET /api/standings", s.handleStandings)
+	// Extensión del mock, NO es parte del OpenAPI: partidas entre dos equipos para cmd/selfplay.
+	mux.HandleFunc("POST /mock/friendly", s.handleFriendly)
 	return mux
 }
 
@@ -326,6 +328,63 @@ func (s *server) handlePractice(w http.ResponseWriter, r *http.Request, t *team)
 		GameID string      `json:"game_id"`
 		You    game.Player `json:"you"`
 	}{g.id, side})
+}
+
+// ---- POST /mock/friendly (extensión del mock) ----
+
+// handleFriendly crea una partida entre dos equipos ya registrados (por su id de GET /api/me).
+// opening son columnas que se juegan antes de entregar el primer turno, para que dos motores
+// deterministas no repitan siempre la misma partida.
+func (s *server) handleFriendly(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Player1 string `json:"player1"`
+		Player2 string `json:"player2"`
+		Opening []int  `json:"opening"`
+	}
+	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req); err != nil {
+		s.writeError(w, http.StatusBadRequest, "validation", "El cuerpo debe ser JSON.")
+		return
+	}
+
+	s.mu.Lock()
+	p1, p2 := s.teamByID(req.Player1), s.teamByID(req.Player2)
+	if p1 == nil || p2 == nil || p1 == p2 {
+		s.mu.Unlock()
+		s.writeError(w, http.StatusBadRequest, "validation", "player1 y player2 deben ser dos equipos distintos ya registrados (GET /api/me).")
+		return
+	}
+	now := s.now()
+	g := &mockGame{kind: "friendly", toMove: 1, availableAt: now, startedAt: now}
+	g.players[1], g.players[2] = p1, p2
+	for _, c := range req.Opening {
+		if c < 0 || c >= game.Cols {
+			s.mu.Unlock()
+			s.writeError(w, http.StatusBadRequest, "validation", fmt.Sprintf("opening: columna %d fuera de rango.", c))
+			return
+		}
+		if _, err := g.play(now, g.toMove, game.Column(c), 0); err != nil || !g.playing() {
+			s.mu.Unlock()
+			s.writeError(w, http.StatusBadRequest, "validation", "opening: jugada ilegal o que termina la partida.")
+			return
+		}
+	}
+	s.created++
+	g.id = fmt.Sprintf("g_f_%02d", s.created)
+	s.games[g.id] = g
+	s.advance(g, now) // avisa al equipo que tiene el primer turno
+	s.mu.Unlock()
+
+	s.writeJSON(w, http.StatusCreated, map[string]string{"game_id": g.id})
+}
+
+// teamByID busca un equipo por su id. Requiere s.mu tomado.
+func (s *server) teamByID(id string) *team {
+	for _, t := range s.teams {
+		if t.id == id {
+			return t
+		}
+	}
+	return nil
 }
 
 // ---- GET /api/me y PUT /api/me/submission ----

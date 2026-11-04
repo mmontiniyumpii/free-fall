@@ -21,17 +21,8 @@ import (
 )
 
 // engineFunc es la firma de engine.ChooseMove. Recibirla como parámetro permite probar
-// los adaptadores con un motor falso.
+// el adaptador con un motor falso. El del árbitro vive en internal/arbiter (EngineChooser).
 type engineFunc func(b game.Board, me game.Player, legal []game.Column, opts engine.Options) engine.Result
-
-// arbiterChooser adapta el motor al loop del árbitro. El torneo juega siempre sin límite
-// de profundidad (MaxDepth = 0): la dificultad es solo de la app (docs/TECNICO.md, D1).
-func arbiterChooser(choose engineFunc, think time.Duration) arbiter.ChooseFunc {
-	return func(t arbiter.Turn) arbiter.Choice {
-		r := choose(t.Board, t.You, t.LegalMoves, engine.Options{Budget: think, MaxDepth: 0})
-		return arbiter.Choice{Column: r.Column, Depth: r.Depth, Nodes: r.Nodes}
-	}
-}
 
 // localChooser adapta el motor a la API local, con la profundidad máxima de la dificultad.
 func localChooser(choose engineFunc, think time.Duration) api.Chooser {
@@ -59,7 +50,7 @@ func main() {
 		client := arbiter.NewClient(cfg.ArbiterURL, cfg.TeamToken)
 		opts := arbiter.LoopOptions{Wait: cfg.PollWait, Connected: &connected}
 		// go: el loop corre en su propia goroutine, en paralelo con la API local.
-		go arbiter.RunLoop(ctx, client, arbiterChooser(engine.ChooseMove, cfg.Think), slog.Default(), opts)
+		go arbiter.RunLoop(ctx, client, arbiter.EngineChooser(cfg.Think), slog.Default(), opts)
 	} else {
 		slog.Warn("ARBITRO_URL vacío: solo API local, sin loop del árbitro")
 	}

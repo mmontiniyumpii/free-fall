@@ -727,6 +727,82 @@ func TestConcurrentTeams(t *testing.T) {
 	}
 }
 
+func teamID(t *testing.T, ts *httptest.Server, token string) string {
+	t.Helper()
+	status, data := call(t, ts, "GET", "/api/me", token, "")
+	if status != http.StatusOK {
+		t.Fatalf("me: %d %s", status, data)
+	}
+	return asMap(t, data)["team"].(map[string]any)["id"].(string)
+}
+
+// Una partida entre dos equipos (extensión del mock, fuera del OpenAPI): los dos juegan por /api/next y /api/move.
+func TestFriendlyBetweenTwoTeams(t *testing.T) {
+	_, ts, _ := newTestServer(t)
+	a, b := teamID(t, ts, "tok-a"), teamID(t, ts, "tok-b")
+
+	status, data := call(t, ts, "POST", "/mock/friendly", "", fmt.Sprintf(`{"player1":%q,"player2":%q,"opening":[3,4]}`, a, b))
+	if status != http.StatusCreated {
+		t.Fatalf("friendly: %d %s", status, data)
+	}
+	id := asMap(t, data)["game_id"].(string)
+
+	// Después de la apertura [3, 4] le toca al jugador 1; el 2 no tiene turno todavía.
+	if _, tr, raw := next(t, ts, "tok-b"); tr.Status != "idle" {
+		t.Fatalf("el jugador 2 no debería tener turno: %s", raw)
+	}
+	if _, tr, raw := next(t, ts, "tok-a"); tr.Status != "turn" || tr.You != 1 || !reflect.DeepEqual(tr.Moves, []int{3, 4}) {
+		t.Fatalf("la apertura [3,4] no se aplicó: %s", raw)
+	}
+
+	tokens := map[int]string{1: "tok-a", 2: "tok-b"}
+	for i := 0; ; i++ {
+		if i > game.Cells {
+			t.Fatal("la partida no termina")
+		}
+		moved := false
+		for side := 1; side <= 2; side++ {
+			_, tr, raw := next(t, ts, tokens[side])
+			if tr.Status != "turn" {
+				continue
+			}
+			if tr.GameID != id || tr.You != side || tr.Kind != "friendly" || tr.Board != rebuild(t, tr.Moves) {
+				t.Fatalf("turno incoherente para el jugador %d: %s", side, raw)
+			}
+			if st, body := move(t, ts, tokens[side], id, tr.LegalMoves[0]); st != http.StatusOK {
+				t.Fatalf("move: %d %v", st, body)
+			}
+			moved = true
+		}
+		if !moved {
+			break
+		}
+	}
+	g := getGame(t, ts, id)
+	players := g["players"].(map[string]any)
+	if g["status"] != "finished" || g["kind"] != "friendly" ||
+		players["1"].(map[string]any)["team_id"] != a || players["2"].(map[string]any)["team_id"] != b {
+		t.Errorf("partida = %v", g)
+	}
+}
+
+func TestFriendlyValidation(t *testing.T) {
+	_, ts, _ := newTestServer(t)
+	a, b := teamID(t, ts, "tok-a"), teamID(t, ts, "tok-b")
+	for _, body := range []string{
+		`not json`,
+		fmt.Sprintf(`{"player1":%q}`, a),
+		fmt.Sprintf(`{"player1":%q,"player2":"eq99"}`, a),
+		fmt.Sprintf(`{"player1":%q,"player2":%q}`, a, a),
+		fmt.Sprintf(`{"player1":%q,"player2":%q,"opening":[9]}`, a, b),
+		fmt.Sprintf(`{"player1":%q,"player2":%q,"opening":[0,1,0,1,0,1,0]}`, a, b), // la apertura gana
+	} {
+		if status, data := call(t, ts, "POST", "/mock/friendly", "", body); status != http.StatusBadRequest {
+			t.Errorf("body %s: %d %s, want 400", body, status, data)
+		}
+	}
+}
+
 func TestLatency(t *testing.T) {
 	s := newServer(150*time.Millisecond, 1, time.Now)
 	ts := httptest.NewServer(s.routes())

@@ -78,3 +78,26 @@
 
 - Antes del cambio: 10/10 victorias contra `casa-basico` en el mock, con `ms` máximo de 1 802.
 - Después del cambio: 10/10 victorias, con `ms` máximo de 1 751 y la misma profundidad típica (10–11). Fue la misma semilla del mock, 5 partidas abriendo y 5 respondiendo.
+
+### D5 — Criterio de tiempo del self-play y partidas entre equipos en el mock (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_BACKEND.md` §7, paso 7: "dos motores contra el mock, latencia 300 ms, 30 min", con el criterio "sin errores ni jugadas > 1 800 ms; `-race` limpio".
+
+**Qué cambia.**
+
+- **El criterio de tiempo pasa a ser `ms` ≤ 1 800 + latencia simulada**, o sea 2 100 ms con 300 ms de latencia.
+  - El `ms` del árbitro se mide desde `served_at`, así que incluye la latencia de red.
+  - Con 300 ms simulados, una jugada de 1 750 ms de cómputo (ver D4) llega en unos 2 050 ms.
+  - El criterio original y la latencia del mismo paso no se pueden cumplir a la vez.
+  - El resumen del self-play informa además el `ms` máximo absoluto contra el límite real de 3 000 ms, que es el que hace perder la partida.
+- **El mock agrega `POST /mock/friendly {"player1", "player2", "opening"}`.** Es una extensión del mock con prefijo `/mock`, y **no** forma parte del OpenAPI. Crea partidas entre dos equipos registrados, para que dos motores jueguen entre sí.
+  - `opening` son hasta 4 jugadas al azar que no terminan la partida. Sin ellas, dos motores deterministas repetirían siempre las mismas dos partidas.
+- **`cmd/selfplay` usa el mismo cliente, el mismo loop y el mismo motor que el bot.** El adaptador del motor (`arbiter.EngineChooser`, siempre con `MaxDepth = 0`) se movió de `cmd/bot` a `internal/arbiter` para que lo compartan los dos.
+
+**Resultado de la corrida de 30 minutos.** Corrió contra el mock con `MOCK_LATENCY_MS=300` y `selfplay` compilado con `-race`, con la semilla 20261105.
+
+- Se jugaron 30 partidas: 29 terminaron por `connect4` y 1 en empate. No hubo ningún timeout, jugada ilegal ni ausencia.
+- El jugador que abre ganó 20 y el que responde 9.
+- El `ms` máximo fue 2 069 y ninguna jugada superó el límite de 2 100.
+- Hubo 0 logs `ERROR`, 0 `WARN` y 0 `DATA RACE`.
+- Con apertura vacía, dos motores deterministas repiten la misma partida (las partidas 6 y 8 fueron idénticas). La apertura al azar evita que eso pase en el resto.
