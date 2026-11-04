@@ -4,6 +4,7 @@ import { App, RETRY_SECONDS } from './app';
 import { FAKE_SCENARIO, FAKE_THINK_MS, FakeGameApiService } from './game/fake-game-api.service';
 import { FakeScenario } from './game/fake-scenarios';
 import { GameApi } from './game/game-api';
+import { stubDialog } from './testing/dialog-stub';
 
 async function start(scenario: FakeScenario = 'playing') {
   TestBed.configureTestingModule({
@@ -37,7 +38,7 @@ async function start(scenario: FakeScenario = 'playing') {
     button,
     click,
     settle,
-    title: () => host.querySelector('.title')?.textContent?.trim(),
+    title: () => host.querySelector('app-status .title')?.textContent?.trim(),
     discs: (kind: 'human' | 'bot') => host.querySelectorAll(`app-board .disc--${kind}`).length,
     columns: () => host.querySelectorAll<HTMLElement>('app-board .column'),
   };
@@ -140,7 +141,7 @@ describe('App', () => {
       await app.click('Empezar partida');
       app.columns()[5].click();
       await app.settle();
-      expect(app.host.querySelector('.detail')?.textContent).toContain('Reintentamos en 1 s');
+      expect(app.host.querySelector('app-status .detail')?.textContent).toContain('Reintentamos en 1 s');
 
       await new Promise((resolve) => setTimeout(resolve, 1100));
       await app.settle();
@@ -158,7 +159,7 @@ describe('App', () => {
       await app.settle();
 
       expect(app.discs('human')).toBe(before);
-      expect(app.host.querySelector('.detail')?.textContent).toBe(
+      expect(app.host.querySelector('app-status .detail')?.textContent).toBe(
         'La columna 6 está llena. Elegí otra.',
       );
     });
@@ -200,5 +201,28 @@ describe('App', () => {
       expect(app.host.querySelector('app-confetti')).toBeNull();
       TestBed.resetTestingModule();
     }
+  });
+
+  describe('reglas', () => {
+    it('el botón de info abre las reglas y mientras están abiertas las teclas no juegan', async () => {
+      stubDialog();
+      const app = await start();
+      await app.click('Empezar partida');
+
+      const info = app.host.querySelector<HTMLButtonElement>('button[aria-label="Cómo se juega"]');
+      info?.click();
+      await app.settle();
+      expect(app.host.querySelector<HTMLDialogElement>('app-rules dialog')?.open).toBe(true);
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: '4' }));
+      await app.settle();
+      expect(app.discs('human')).toBe(0);
+
+      await app.click('Entendido');
+      expect(app.host.querySelector<HTMLDialogElement>('app-rules dialog')?.open).toBe(false);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: '4' }));
+      await app.settle();
+      expect(app.discs('human')).toBe(1);
+    });
   });
 });

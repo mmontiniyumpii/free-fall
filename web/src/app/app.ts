@@ -11,6 +11,7 @@ import { Observable } from 'rxjs';
 
 import { Board } from './board/board';
 import { Confetti } from './confetti/confetti';
+import { Rules } from './rules/rules';
 import { classifyError } from './game/api-error';
 import { GameApi } from './game/game-api';
 import { ApiError, FirstPlayer, GameState } from './game/game-state';
@@ -31,7 +32,7 @@ type Unanswered =
 
 @Component({
   selector: 'app-root',
-  imports: [Board, Confetti, Status, Toolbar],
+  imports: [Board, Confetti, Rules, Status, Toolbar],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -54,6 +55,8 @@ export class App {
   protected readonly notice = signal<StatusNotice | null>(null);
   protected readonly focusedColumn = signal<number | null>(null);
   protected readonly rejectedColumn = signal<number | null>(null);
+  /** Modal de reglas abierto: el tablero no responde (ni a las teclas 1 a 8). */
+  protected readonly rulesOpen = signal(false);
 
   private unanswered: Unanswered | null = null;
   private countdown: ReturnType<typeof setInterval> | undefined;
@@ -67,7 +70,7 @@ export class App {
   );
 
   protected readonly boardLocked = computed(
-    () => this.busy() || this.offline() || this.notice() !== null,
+    () => this.busy() || this.offline() || this.notice() !== null || this.rulesOpen(),
   );
 
   protected readonly toolbarMode = computed<ToolbarMode>(() => {

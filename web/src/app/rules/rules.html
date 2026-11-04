@@ -1,0 +1,64 @@
+<dialog #dialog class="dialog" aria-labelledby="rules-title" (close)="closed.emit()" (click)="closeOnBackdrop($event)">
+  <div class="content">
+    <header class="head">
+      <div>
+        <div class="eyebrow">Cómo se juega</div>
+        <h2 id="rules-title" class="title">Cuatro en línea</h2>
+      </div>
+      <button type="button" class="icon-button" aria-label="Cerrar" (click)="close()">
+        <!-- Ícono x de Lucide (ISC). -->
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M18 6 6 18" />
+          <path d="m6 6 12 12" />
+        </svg>
+      </button>
+    </header>
+
+    <p class="lead">Conectá cuatro fichas tuyas en línea antes que el bot.</p>
+
+    <section class="section">
+      <h3 class="section-title">El tablero</h3>
+      <p>Tiene 8 columnas y 7 filas. Elegís una columna y tu ficha cae hasta el lugar libre más bajo. Una columna llena no se puede jugar.</p>
+    </section>
+
+    <section class="section">
+      <h3 class="section-title">Turnos</h3>
+      <p>Antes de empezar elegís quién abre: vos o el bot. Después se juega por turnos, una ficha cada uno.</p>
+      <div class="pieces">
+        <span class="piece"><span class="disc disc--human"></span>Tus fichas</span>
+        <span class="piece"><span class="disc disc--bot"></span>Las del bot</span>
+      </div>
+    </section>
+
+    <section class="section">
+      <h3 class="section-title">Cómo se gana</h3>
+      <p>Gana quien primero junta cuatro fichas seguidas, en cualquier dirección:</p>
+      <div class="examples">
+        @for (example of examples; track example.label) {
+          <figure class="example">
+            <div class="mini" aria-hidden="true">
+              @for (row of example.dots; track $index) {
+                @for (dot of row; track $index) {
+                  <span class="mini-dot" [class.mini-dot--win]="dot === 'win'"></span>
+                }
+              }
+            </div>
+            <figcaption>{{ example.label }}</figcaption>
+          </figure>
+        }
+      </div>
+      <p>Si se llenan las 56 casillas y nadie formó cuatro en línea, es empate.</p>
+    </section>
+
+    <section class="section">
+      <h3 class="section-title">En esta app</h3>
+      <ul class="list">
+        <li>Pasá el mouse sobre una columna para ver dónde caería tu ficha, y hacé clic para soltarla.</li>
+        <li>También podés usar las teclas <kbd>1</kbd> a <kbd>8</kbd>.</li>
+        <li>Mientras el bot piensa, el tablero se bloquea unos segundos.</li>
+      </ul>
+    </section>
+
+    <button type="button" class="primary" (click)="close()">Entendido</button>
+  </div>
+</dialog>
