@@ -61,3 +61,20 @@
 - `internal/config` rechaza arrancar si `ARBITRO_URL` está definida y no es una URL http(s), o si falta `TEAM_TOKEN`.
 
 **Por qué.** Sin `Wait` no se puede configurar el long poll. Sin `Connected`, `/health` no puede informar el estado real de la conexión. Arrancar sin token deja al bot recibiendo `401` en silencio hasta perder por ausencia.
+
+### D4 — Parada dura del motor a `THINK_MS + 250 ms` y orden con la mejor jugada previa (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_BACKEND.md` §6 fija el presupuesto en `THINK_MS = 1500` y la parada dura en 1 800 ms. §7, paso 7, pide como criterio de listo que no haya jugadas de más de 1 800 ms. §5 define el orden de jugadas como "centro primero".
+
+**Qué pasó.** Con la parada dura en 1 800 ms, casi todas las jugadas llegaban al mock con `ms` entre 1 800 y 1 802. Eso pasa porque el iterative deepening arranca una profundidad nueva poco antes de los 1 500 ms, esa profundidad se corta a los 1 800, y el `ms` del árbitro suma además parseo y red.
+
+**Qué cambia.**
+
+- La búsqueda se aborta en `Budget + 250 ms`, es decir 1 750 ms con el valor por defecto. Así la jugada completa llega antes de 1 800 ms.
+- El presupuesto blando no cambia: no se empieza una profundidad nueva pasado `THINK_MS`.
+- En la raíz se prueba primero la mejor jugada de la profundidad anterior, y después el resto desde el centro. Es la técnica estándar de iterative deepening y mejora la poda.
+
+**Evidencia.**
+
+- Antes del cambio: 10/10 victorias contra `casa-basico` en el mock, con `ms` máximo de 1 802.
+- Después del cambio: 10/10 victorias, con `ms` máximo de 1 751 y la misma profundidad típica (10–11). Fue la misma semilla del mock, 5 partidas abriendo y 5 respondiendo.

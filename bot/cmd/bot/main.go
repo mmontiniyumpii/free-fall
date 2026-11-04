@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"math/rand/v2"
 	"net/http"
 	"os"
 	"os/signal"
@@ -17,18 +16,29 @@ import (
 	"github.com/mmontiniyumpii/free-fall/bot/internal/api"
 	"github.com/mmontiniyumpii/free-fall/bot/internal/arbiter"
 	"github.com/mmontiniyumpii/free-fall/bot/internal/config"
+	"github.com/mmontiniyumpii/free-fall/bot/internal/engine"
 	"github.com/mmontiniyumpii/free-fall/bot/internal/game"
 )
 
-// Electores provisorios: una columna legal al azar. En el paso 6 los dos pasan a usar engine.ChooseMove,
-// el loop del árbitro siempre con MaxDepth = 0. rand.IntN global es seguro entre goroutines.
+// engineFunc es la firma de engine.ChooseMove. Recibirla como parámetro permite probar
+// los adaptadores con un motor falso.
+type engineFunc func(b game.Board, me game.Player, legal []game.Column, opts engine.Options) engine.Result
 
-func randomChoice(t arbiter.Turn) arbiter.Choice {
-	return arbiter.Choice{Column: t.LegalMoves[rand.IntN(len(t.LegalMoves))]}
+// arbiterChooser adapta el motor al loop del árbitro. El torneo juega siempre sin límite
+// de profundidad (MaxDepth = 0): la dificultad es solo de la app (docs/TECNICO.md, D1).
+func arbiterChooser(choose engineFunc, think time.Duration) arbiter.ChooseFunc {
+	return func(t arbiter.Turn) arbiter.Choice {
+		r := choose(t.Board, t.You, t.LegalMoves, engine.Options{Budget: think, MaxDepth: 0})
+		return arbiter.Choice{Column: r.Column, Depth: r.Depth, Nodes: r.Nodes}
+	}
 }
 
-func randomBotMove(_ game.Board, _ game.Player, legal []game.Column, _ int) api.BotMove {
-	return api.BotMove{Column: legal[rand.IntN(len(legal))]}
+// localChooser adapta el motor a la API local, con la profundidad máxima de la dificultad.
+func localChooser(choose engineFunc, think time.Duration) api.Chooser {
+	return func(b game.Board, me game.Player, legal []game.Column, maxDepth int) api.BotMove {
+		r := choose(b, me, legal, engine.Options{Budget: think, MaxDepth: maxDepth})
+		return api.BotMove{Column: r.Column, Depth: r.Depth, Nodes: r.Nodes}
+	}
 }
 
 func main() {
@@ -49,14 +59,14 @@ func main() {
 		client := arbiter.NewClient(cfg.ArbiterURL, cfg.TeamToken)
 		opts := arbiter.LoopOptions{Wait: cfg.PollWait, Connected: &connected}
 		// go: el loop corre en su propia goroutine, en paralelo con la API local.
-		go arbiter.RunLoop(ctx, client, randomChoice, slog.Default(), opts)
+		go arbiter.RunLoop(ctx, client, arbiterChooser(engine.ChooseMove, cfg.Think), slog.Default(), opts)
 	} else {
 		slog.Warn("ARBITRO_URL vacío: solo API local, sin loop del árbitro")
 	}
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: api.NewServer(randomBotMove, cfg.Think, &connected).Handler(),
+		Handler: api.NewServer(localChooser(engine.ChooseMove, cfg.Think), cfg.Think, &connected).Handler(),
 		// Corta clientes que no terminan de mandar los headers (evita sockets colgados).
 		ReadHeaderTimeout: 5 * time.Second,
 	}
