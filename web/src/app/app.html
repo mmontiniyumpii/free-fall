@@ -4,10 +4,29 @@
 
 <main class="layout">
   <section class="board-area">
-    @if (game(); as state) {
-      <app-board [state]="state" [disabled]="busy()" (columnSelected)="play($event)" />
-    }
+    <app-board
+      [state]="game()"
+      [disabled]="busy()"
+      (columnSelected)="play($event)"
+      (columnFocused)="focusedColumn.set($event)"
+      (columnRejected)="rejectedColumn.set($event)"
+    />
   </section>
-  <section class="status"></section>
-  <section class="panel"></section>
+  <app-status
+    class="status"
+    [state]="game()"
+    [thinking]="thinking()"
+    [focusedColumn]="focusedColumn()"
+    [rejectedColumn]="rejectedColumn()"
+  />
+  <app-toolbar
+    class="panel"
+    [mode]="toolbarMode()"
+    [first]="first()"
+    [busy]="busy()"
+    [showKeys]="humanTurn()"
+    (firstChange)="first.set($event)"
+    (newGame)="newGame()"
+    (backToSetup)="backToSetup()"
+  />
 </main>

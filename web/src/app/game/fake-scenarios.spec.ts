@@ -26,10 +26,10 @@ describe('escenarios del fake', () => {
   }
 
   it('cada pedido devuelve una copia: mutarla no cambia el escenario', () => {
-    const first = fakeState('playing');
+    const first = fakeState('fixture');
     first.board[0][0] = 2;
 
-    expect(fakeState('playing').board[0][0]).toBe(0);
+    expect(fakeState('fixture').board[0][0]).toBe(0);
   });
 
   it('un escenario desconocido o ausente cae en playing', () => {

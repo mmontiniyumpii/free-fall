@@ -6,16 +6,20 @@ import { Board } from './board';
 
 type Owner = 'human' | 'bot' | null;
 
-function setup(state: GameState, disabled = false) {
+function setup(state: GameState | null, disabled = false) {
   const fixture = TestBed.createComponent(Board);
   fixture.componentRef.setInput('state', state);
   fixture.componentRef.setInput('disabled', disabled);
   const selected: number[] = [];
+  const focused: (number | null)[] = [];
+  const rejected: (number | null)[] = [];
   fixture.componentInstance.columnSelected.subscribe((column) => selected.push(column));
+  fixture.componentInstance.columnFocused.subscribe((column) => focused.push(column));
+  fixture.componentInstance.columnRejected.subscribe((column) => rejected.push(column));
   fixture.detectChanges();
   const host = fixture.nativeElement as HTMLElement;
   const column = (index: number) => host.querySelectorAll<HTMLElement>('.column')[index];
-  return { fixture, host, selected, column };
+  return { fixture, host, selected, focused, rejected, column };
 }
 
 function render(state: GameState): HTMLElement {
@@ -24,7 +28,7 @@ function render(state: GameState): HTMLElement {
 
 /** Fixture con la columna 0 llena (sin cuatro seguidas) y fuera de legal_moves. */
 function withFullColumnZero(): GameState {
-  const state = fakeState('playing');
+  const state = fakeState('fixture');
   state.board.forEach((row, index) => (row[0] = index % 2 === 0 ? 1 : 2));
   state.legal_moves = [1, 2, 3, 4, 5, 6, 7];
   return state;
@@ -46,7 +50,7 @@ function emptyBoard(): Cell[][] {
 
 describe('Board', () => {
   it('dibuja 8 columnas de 7 celdas, numeradas 1 a 8 de izquierda a derecha', () => {
-    const host = render(fakeState('playing'));
+    const host = render(fakeState('fixture'));
 
     expect(host.querySelectorAll('.column').length).toBe(8);
     expect(host.querySelectorAll('.cell').length).toBe(56);
@@ -57,7 +61,7 @@ describe('Board', () => {
 
   it('dibuja la fila 0 abajo: board[0][3] es la última celda de la columna 3 en el DOM', () => {
     // Fixture: columna 3 con 1, 1, 1, 2 desde abajo; columna 4 con 2, 2.
-    const host = render(fakeState('playing'));
+    const host = render(fakeState('fixture'));
 
     expect(columnTopToBottom(host, 3)).toEqual([null, null, null, 'bot', 'human', 'human', 'human']);
     expect(columnTopToBottom(host, 4)).toEqual([null, null, null, null, null, 'bot', 'bot']);
@@ -67,7 +71,7 @@ describe('Board', () => {
   it('una ficha en la fila 6 queda arriba de todo', () => {
     const board = emptyBoard();
     board[6][7] = 1;
-    const host = render({ ...fakeState('playing'), board });
+    const host = render({ ...fakeState('fixture'), board });
 
     expect(columnTopToBottom(host, 7)).toEqual(['human', null, null, null, null, null, null]);
   });
@@ -76,7 +80,7 @@ describe('Board', () => {
     const board = emptyBoard();
     board[0][0] = 2;
     board[0][1] = 1;
-    const host = render({ ...fakeState('playing'), board, human: 2, bot: 1 });
+    const host = render({ ...fakeState('fixture'), board, human: 2, bot: 1 });
 
     expect(columnTopToBottom(host, 0).at(-1)).toBe('human');
     expect(columnTopToBottom(host, 1).at(-1)).toBe('bot');
@@ -84,7 +88,7 @@ describe('Board', () => {
 
   describe('interacción', () => {
     it('un clic en una columna legal emite su índice', () => {
-      const { column, selected } = setup(fakeState('playing'));
+      const { column, selected } = setup(fakeState('fixture'));
 
       column(5).click();
 
@@ -119,7 +123,7 @@ describe('Board', () => {
     });
 
     it('si no le toca al humano no emite', () => {
-      const { column, selected } = setup({ ...fakeState('playing'), to_move: 2 });
+      const { column, selected } = setup({ ...fakeState('fixture'), to_move: 2 });
 
       column(5).click();
 
@@ -136,7 +140,7 @@ describe('Board', () => {
     });
 
     it('las teclas 1 a 8 eligen columna; otras teclas o con modificador no', () => {
-      const { selected } = setup(fakeState('playing'));
+      const { selected } = setup(fakeState('fixture'));
 
       document.dispatchEvent(new KeyboardEvent('keydown', { key: '4' }));
       document.dispatchEvent(new KeyboardEvent('keydown', { key: '9' }));
@@ -147,7 +151,7 @@ describe('Board', () => {
     });
 
     it('al pasar el mouse muestra la ficha en el carril y el contorno donde cae', () => {
-      const { fixture, column, host } = setup(fakeState('playing'));
+      const { fixture, column, host } = setup(fakeState('fixture'));
 
       column(3).dispatchEvent(new MouseEvent('mouseenter'));
       fixture.detectChanges();
@@ -157,6 +161,37 @@ describe('Board', () => {
       // que es la tercera celda desde arriba en el DOM.
       const ghosts = Array.from(column(3).querySelectorAll('.cell'), (cell) => !!cell.querySelector('.ghost'));
       expect(ghosts).toEqual([false, false, true, false, false, false, false]);
+    });
+  });
+
+  describe('inicio y avisos al panel de estado', () => {
+    it('sin partida (pantalla de inicio) dibuja el tablero vacío y no responde', () => {
+      const { host, column, selected } = setup(null);
+
+      expect(host.querySelectorAll('.cell').length).toBe(56);
+      expect(host.querySelector('.disc')).toBeNull();
+      column(2).click();
+      expect(selected).toEqual([]);
+    });
+
+    it('avisa qué columna se previsualiza y cuándo se deja de previsualizar', () => {
+      const { column, host, focused } = setup(fakeState('fixture'));
+
+      column(5).dispatchEvent(new MouseEvent('mouseenter'));
+      host.querySelector('.board')?.dispatchEvent(new MouseEvent('mouseleave'));
+
+      expect(focused).toEqual([5, null]);
+    });
+
+    it('avisa la columna llena rechazada y la limpia cuando se apaga el aviso', async () => {
+      vi.useFakeTimers();
+      const { column, rejected } = setup(withFullColumnZero());
+
+      column(0).click();
+      expect(rejected).toEqual([0]);
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(rejected).toEqual([0, null]);
+      vi.useRealTimers();
     });
   });
 });

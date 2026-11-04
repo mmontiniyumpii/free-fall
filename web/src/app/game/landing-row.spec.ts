@@ -4,12 +4,12 @@ import { landingRow } from './landing-row';
 
 describe('landingRow', () => {
   it('en una columna vacía cae en la fila 0 (abajo)', () => {
-    expect(landingRow(fakeState('playing').board, 0)).toBe(0);
+    expect(landingRow(fakeState('fixture').board, 0)).toBe(0);
   });
 
   it('cae sobre la última ficha de la columna', () => {
     // Fixture: columna 3 con fichas en las filas 0 a 3.
-    expect(landingRow(fakeState('playing').board, 3)).toBe(4);
+    expect(landingRow(fakeState('fixture').board, 3)).toBe(4);
   });
 
   it('una columna llena no tiene fila', () => {

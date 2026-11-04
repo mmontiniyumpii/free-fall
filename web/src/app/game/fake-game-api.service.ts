@@ -7,14 +7,14 @@ import { FakeScenario, fakeState, parseScenario } from './fake-scenarios';
 import { ApiError, Difficulty, FirstPlayer, GameState, ROWS } from './game-state';
 import { landingRow } from './landing-row';
 
-/** Escenario del fake; en el navegador se elige con `?scenario=won|draw|illegal_move`. */
+/** Escenario del fake; en el navegador se elige con `?scenario=fixture|won|draw|illegal_move`. */
 export const FAKE_SCENARIO = new InjectionToken<FakeScenario>('FAKE_SCENARIO', {
   factory: () =>
     parseScenario(new URLSearchParams(inject(DOCUMENT).location.search).get('scenario')),
 });
 
-/** Simula la respuesta del bot sin superar el límite real de think_ms. */
-const BOT_THINK_MS = 600;
+/** Cuánto tarda el bot falso en responder; por debajo del think_ms real. Los tests lo bajan a 0. */
+export const FAKE_THINK_MS = new InjectionToken<number>('FAKE_THINK_MS', { factory: () => 600 });
 
 /**
  * API falsa mientras el backend no existe. Parte de un estado fijo por
@@ -25,13 +25,16 @@ const BOT_THINK_MS = 600;
 @Injectable()
 export class FakeGameApiService extends GameApi {
   private readonly scenario = inject(FAKE_SCENARIO);
+  private readonly thinkMs = inject(FAKE_THINK_MS);
   private game: GameState | null = null;
 
-  create(_first: FirstPlayer, difficulty?: Difficulty): Observable<GameState> {
+  create(first: FirstPlayer, difficulty?: Difficulty): Observable<GameState> {
     // Como el backend, devuelve la dificultad con la que se creó la partida.
-    const state = fakeState(this.scenario);
+    const state = fakeState(this.scenario, first);
     this.game = { ...state, difficulty: difficulty ?? state.difficulty };
-    return of(structuredClone(this.game));
+    // Si abre el bot, la respuesta ya trae su jugada: tarda lo que tarda en pensar.
+    const created = of(structuredClone(this.game));
+    return first === 'bot' ? created.pipe(delay(this.thinkMs)) : created;
   }
 
   move(id: string, column: number): Observable<GameState> {
@@ -52,7 +55,7 @@ export class FakeGameApiService extends GameApi {
       history: [...state.history, column],
       legal_moves: row === ROWS - 1 ? state.legal_moves.filter((c) => c !== column) : state.legal_moves,
     };
-    return of(structuredClone(this.game)).pipe(delay(BOT_THINK_MS));
+    return of(structuredClone(this.game)).pipe(delay(this.thinkMs));
   }
 
   get(id: string): Observable<GameState> {

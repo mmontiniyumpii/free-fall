@@ -1,16 +1,59 @@
 // Estados fijos para FakeGameApiService. Son datos, no reglas: el front no los
-// valida. `playing` es el fixture del contrato, sin copiarlo.
+// valida. `fixture` es el ejemplo del contrato, importado sin copiarlo.
 import fixture from '../../../../docs/fixtures/game-state.example.json';
 
-import { GameState } from './game-state';
+import { Cell, FirstPlayer, GameState } from './game-state';
 
-export type FakeScenario = 'playing' | 'won' | 'draw' | 'illegal_move';
+export type FakeScenario = 'playing' | 'fixture' | 'won' | 'draw' | 'illegal_move';
 
-export const FAKE_SCENARIOS: readonly FakeScenario[] = ['playing', 'won', 'draw', 'illegal_move'];
+export const FAKE_SCENARIOS: readonly FakeScenario[] = [
+  'playing',
+  'fixture',
+  'won',
+  'draw',
+  'illegal_move',
+];
 
 // El JSON se importa con tipos anchos (number, string); la forma se verifica en
 // fake-scenarios.spec.ts.
-const playing = fixture as GameState;
+const midGame = fixture as GameState;
+
+function emptyBoard(): Cell[][] {
+  return Array.from({ length: 7 }, () => Array<Cell>(8).fill(0));
+}
+
+/**
+ * Partida nueva como la describe el contrato para POST /local/games. Si abre el
+ * bot, su primera jugada es fija (columna 3): el fake no decide jugadas.
+ */
+function newGame(first: FirstPlayer): GameState {
+  const base: GameState = {
+    id: 'l_fake',
+    board: emptyBoard(),
+    to_move: 1,
+    legal_moves: [0, 1, 2, 3, 4, 5, 6, 7],
+    status: 'playing',
+    winner: null,
+    winning_cells: null,
+    history: [],
+    human: 1,
+    bot: 2,
+    difficulty: 'hard',
+    last_bot: null,
+  };
+  if (first === 'human') return base;
+  const board = emptyBoard();
+  board[0][3] = 1;
+  return {
+    ...base,
+    board,
+    to_move: 2,
+    history: [3],
+    human: 2,
+    bot: 1,
+    last_bot: { column: 3, depth: 10, nodes: 523114, elapsed_ms: 1350 },
+  };
+}
 
 // Ejemplo "partida ganada por el humano" de docs/api-local.md, con el tablero
 // reconstruido desde su history: diagonal (0,2) (1,3) (2,4) (3,5) del jugador 1.
@@ -70,16 +113,20 @@ const draw: GameState = {
   last_bot: { column: 7, depth: 1, nodes: 1, elapsed_ms: 0 },
 };
 
-const STATES: Record<FakeScenario, GameState> = {
-  playing,
+const STATES: Record<Exclude<FakeScenario, 'playing'>, GameState> = {
+  fixture: midGame,
   won,
   draw,
-  // Mismo tablero que `playing`; la diferencia está en FakeGameApiService.move.
-  illegal_move: playing,
+  // Mismo tablero que `fixture`; la diferencia está en FakeGameApiService.move.
+  illegal_move: midGame,
 };
 
-/** Copia profunda: quien la reciba puede mutarla sin tocar los datos fijos. */
-export function fakeState(scenario: FakeScenario): GameState {
+/**
+ * Estado inicial de un escenario. `playing` respeta quién abre; el resto es
+ * fijo. Copia profunda: quien la reciba puede mutarla sin tocar los datos.
+ */
+export function fakeState(scenario: FakeScenario, first: FirstPlayer = 'human'): GameState {
+  if (scenario === 'playing') return newGame(first);
   return structuredClone(STATES[scenario]);
 }
 

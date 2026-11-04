@@ -14,12 +14,28 @@ function fakeApi(scenario: FakeScenario): FakeGameApiService {
 describe('FakeGameApiService', () => {
   afterEach(() => vi.useRealTimers());
 
-  it('playing: crea la partida del fixture del contrato', async () => {
+  it('playing, abre el humano: tablero vacío y le toca al humano (1)', async () => {
     const state = await firstValueFrom(fakeApi('playing').create('human'));
 
+    expect(state.board.flat().every((cell) => cell === 0)).toBe(true);
+    expect([state.human, state.bot, state.to_move]).toEqual([1, 2, 1]);
+    expect(state.last_bot).toBeNull();
+  });
+
+  it('playing, abre el bot: ya trae su apertura y le toca al humano (2)', async () => {
+    const state = await firstValueFrom(fakeApi('playing').create('bot'));
+
+    expect([state.human, state.bot, state.to_move]).toEqual([2, 1, 2]);
+    expect(state.history).toEqual([3]);
+    expect(state.board[0][3]).toBe(1);
+    expect(state.last_bot?.column).toBe(3);
+  });
+
+  it('fixture: crea la partida de ejemplo del contrato', async () => {
+    const state = await firstValueFrom(fakeApi('fixture').create('human'));
+
     expect(state.id).toBe('l_0001');
-    expect(state.status).toBe('playing');
-    expect(state.to_move).toBe(1);
+    expect(state.history).toEqual([3, 4, 3, 4, 3, 3]);
   });
 
   it('devuelve la dificultad con la que se pidió la partida', async () => {
@@ -90,6 +106,6 @@ describe('FakeGameApiService', () => {
     expect((await first).board[0][0]).toBe(1);
     expect(state.board[0][0]).toBe(1);
     expect(state.board[1][0]).toBe(1);
-    expect(state.history).toEqual([3, 4, 3, 4, 3, 3, 0, 0]);
+    expect(state.history).toEqual([0, 0]);
   });
 });

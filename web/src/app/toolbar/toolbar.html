@@ -1,0 +1,43 @@
+@switch (mode()) {
+  @case ('setup') {
+    <fieldset class="field">
+      <legend class="field-label">¿Quién empieza?</legend>
+      <div class="starters">
+        @for (option of starters; track option.value) {
+          <button
+            type="button"
+            class="starter"
+            [class.starter--selected]="first() === option.value"
+            [attr.aria-pressed]="first() === option.value"
+            (click)="firstChange.emit(option.value)"
+          >
+            <span class="chip" [class.chip--human]="option.value === 'human'" [class.chip--bot]="option.value === 'bot'"></span>
+            <span class="starter-text">
+              <span class="starter-label">{{ option.label }}</span>
+              <span class="starter-detail">{{ option.detail }}</span>
+            </span>
+          </button>
+        }
+      </div>
+    </fieldset>
+    <button type="button" class="primary" [disabled]="busy()" (click)="newGame.emit()">Empezar partida</button>
+  }
+  @case ('playing') {
+    <button type="button" class="secondary" [disabled]="busy()" (click)="newGame.emit()">
+      <!-- Ícono rotate-ccw de Lucide (ISC), inline para no sumar dependencias. -->
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+        <path d="M3 3v5h5" />
+      </svg>
+      Reiniciar
+    </button>
+  }
+  @case ('over') {
+    <button type="button" class="primary" [disabled]="busy()" (click)="newGame.emit()">Jugar de nuevo</button>
+    <button type="button" class="ghost" [disabled]="busy()" (click)="backToSetup.emit()">Cambiar configuración</button>
+  }
+}
+
+@if (showKeys()) {
+  <p class="hint">También podés usar las teclas <kbd>1</kbd> a <kbd>8</kbd>.</p>
+}

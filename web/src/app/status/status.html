@@ -1,0 +1,19 @@
+@let status = view();
+<div class="eyebrow">{{ status.eyebrow }}</div>
+
+<div class="title-row">
+  <h1 class="title">{{ status.title }}</h1>
+  @if (thinking()) {
+    <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
+  }
+</div>
+
+<p class="detail" [class.detail--warning]="status.warning" aria-live="polite">{{ status.detail }}</p>
+
+@if (status.turn) {
+  <div class="turn" [class.turn--bot]="status.turn === 'bot'" aria-hidden="true">
+    <span class="turn-marker"></span>
+    <span class="turn-side turn-side--human"><span class="chip chip--human"></span>Vos</span>
+    <span class="turn-side turn-side--bot"><span class="chip chip--bot"></span>Bot</span>
+  </div>
+}

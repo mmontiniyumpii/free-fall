@@ -34,9 +34,9 @@ describe('GameApiService', () => {
     const req = http.expectOne(`${BASE}/local/games`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({ first: 'bot' });
-    req.flush(fakeState('playing'));
+    req.flush(fakeState('fixture'));
 
-    expect(await response).toEqual(fakeState('playing'));
+    expect(await response).toEqual(fakeState('fixture'));
   });
 
   it('manda la dificultad solo cuando se elige', async () => {
@@ -44,7 +44,7 @@ describe('GameApiService', () => {
 
     const req = http.expectOne(`${BASE}/local/games`);
     expect(req.request.body).toEqual({ first: 'human', difficulty: 'easy' });
-    req.flush(fakeState('playing'));
+    req.flush(fakeState('fixture'));
     await response;
   });
 
@@ -54,7 +54,7 @@ describe('GameApiService', () => {
     const req = http.expectOne(`${BASE}/local/games/l_0001/moves`);
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({ column: 3 });
-    req.flush(fakeState('playing'));
+    req.flush(fakeState('fixture'));
     await response;
   });
 
@@ -63,7 +63,7 @@ describe('GameApiService', () => {
 
     const req = http.expectOne(`${BASE}/local/games/l_0001`);
     expect(req.request.method).toBe('GET');
-    req.flush(fakeState('playing'));
+    req.flush(fakeState('fixture'));
     await response;
   });
 

@@ -1,45 +1,113 @@
 import { TestBed } from '@angular/core/testing';
 
 import { App } from './app';
-import { FAKE_SCENARIO, FakeGameApiService } from './game/fake-game-api.service';
+import { FAKE_SCENARIO, FAKE_THINK_MS, FakeGameApiService } from './game/fake-game-api.service';
+import { FakeScenario } from './game/fake-scenarios';
 import { GameApi } from './game/game-api';
 
+async function start(scenario: FakeScenario = 'playing') {
+  TestBed.configureTestingModule({
+    imports: [App],
+    providers: [
+      { provide: GameApi, useClass: FakeGameApiService },
+      { provide: FAKE_SCENARIO, useValue: scenario },
+      { provide: FAKE_THINK_MS, useValue: 0 },
+    ],
+  });
+  const fixture = TestBed.createComponent(App);
+  await fixture.whenStable();
+  const host = fixture.nativeElement as HTMLElement;
+  const button = (text: string) =>
+    Array.from(host.querySelectorAll('button')).find((b) => b.textContent?.includes(text)) ?? null;
+  /** Deja correr la respuesta del fake (delay 0) y el render. */
+  const settle = async () => {
+    await new Promise((resolve) => setTimeout(resolve));
+    await fixture.whenStable();
+  };
+  const click = async (text: string) => {
+    const target = button(text);
+    if (!target) throw new Error(`No hay botón "${text}"`);
+    target.click();
+    await settle();
+  };
+  return {
+    fixture,
+    host,
+    button,
+    click,
+    settle,
+    title: () => host.querySelector('.title')?.textContent?.trim(),
+    discs: (kind: 'human' | 'bot') => host.querySelectorAll(`app-board .disc--${kind}`).length,
+    columns: () => host.querySelectorAll<HTMLElement>('app-board .column'),
+  };
+}
+
 describe('App', () => {
-  beforeEach(async () => {
-    await TestBed.configureTestingModule({
-      imports: [App],
-      providers: [
-        { provide: GameApi, useClass: FakeGameApiService },
-        { provide: FAKE_SCENARIO, useValue: 'playing' },
-      ],
-    }).compileComponents();
+  it('arranca en la pantalla de inicio con el tablero vacío', async () => {
+    const app = await start();
+
+    expect(app.title()).toBe('Cuatro en línea');
+    expect(app.button('Empezar partida')).not.toBeNull();
+    expect(app.host.querySelectorAll('app-board .cell').length).toBe(56);
+    expect(app.host.querySelector('app-board .disc')).toBeNull();
   });
 
-  it('muestra el tablero con la partida que devuelve la API', async () => {
-    const fixture = TestBed.createComponent(App);
-    await fixture.whenStable();
-    const host = fixture.nativeElement as HTMLElement;
+  it('empezar como humano: tablero vacío y te toca a vos', async () => {
+    const app = await start();
 
-    expect(host.querySelector('.brand')?.textContent).toContain('Cuatro en línea');
-    expect(host.querySelectorAll('app-board .cell').length).toBe(56);
-    // El fixture tiene 6 fichas: 4 en la columna 3 y 2 en la columna 4.
-    expect(host.querySelectorAll('app-board .disc').length).toBe(6);
+    await app.click('Empezar partida');
+
+    expect(app.title()).toBe('Tu turno');
+    expect(app.host.querySelector('app-board .disc')).toBeNull();
+    expect(app.button('Reiniciar')).not.toBeNull();
+  });
+
+  it('empezar como bot: aparece su apertura abajo y te toca a vos', async () => {
+    const app = await start();
+
+    await app.click('El bot');
+    await app.click('Empezar partida');
+
+    expect(app.title()).toBe('Tu turno');
+    expect(app.discs('bot')).toBe(1);
+    const column3 = app.columns()[3].querySelectorAll('.cell');
+    expect(column3[column3.length - 1].querySelector('.disc--bot')).not.toBeNull();
   });
 
   it('al hacer clic en una columna la ficha aparece abajo', async () => {
-    vi.useFakeTimers();
-    const fixture = TestBed.createComponent(App);
-    await vi.advanceTimersByTimeAsync(0);
-    fixture.detectChanges();
-    const host = fixture.nativeElement as HTMLElement;
-    const column0 = host.querySelectorAll<HTMLElement>('app-board .column')[0];
+    const app = await start();
+    await app.click('Empezar partida');
 
-    column0.click();
-    await vi.advanceTimersByTimeAsync(1000);
-    fixture.detectChanges();
+    app.columns()[0].click();
+    await app.settle();
 
-    const cells = column0.querySelectorAll('.cell');
+    const cells = app.columns()[0].querySelectorAll('.cell');
     expect(cells[cells.length - 1].querySelector('.disc--human')).not.toBeNull();
-    vi.useRealTimers();
+  });
+
+  it('"Reiniciar" vuelve a una partida nueva con el mismo inicio, sin pasar por la configuración', async () => {
+    const app = await start();
+    await app.click('El bot');
+    await app.click('Empezar partida');
+    app.columns()[0].click();
+    await app.settle();
+    expect(app.discs('human')).toBe(1);
+
+    await app.click('Reiniciar');
+
+    expect(app.discs('human')).toBe(0);
+    expect(app.discs('bot')).toBe(1);
+    expect(app.button('Empezar partida')).toBeNull();
+  });
+
+  it('al terminar la partida se puede volver a la configuración', async () => {
+    const app = await start('won');
+    await app.click('Empezar partida');
+    expect(app.title()).toBe('Ganaste');
+
+    await app.click('Cambiar configuración');
+
+    expect(app.title()).toBe('Cuatro en línea');
+    expect(app.button('Empezar partida')).not.toBeNull();
   });
 });
