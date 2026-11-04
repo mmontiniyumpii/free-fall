@@ -1,5 +1,5 @@
-// Command bot arranca el bot: la API local para la app web (siempre) y el loop del árbitro (si ARBITRO_URL está definida).
-// El warm-up del motor llega en el paso 8.
+// Command bot arranca el bot: warm-up del motor, el loop del árbitro (si ARBITRO_URL está definida)
+// y la API local para la app web. En el torneo se corre bajo scripts/run-bot.sh (o .ps1), que lo reinicia si se cae.
 package main
 
 import (
@@ -32,6 +32,13 @@ func localChooser(choose engineFunc, think time.Duration) api.Chooser {
 	}
 }
 
+// warmUp hace una búsqueda de d sobre el tablero vacío antes de jugar (plan §6), para que la primera
+// jugada del torneo no pague el arranque en frío (código y memoria que todavía no están en caché).
+func warmUp(choose engineFunc, d time.Duration) engine.Result {
+	var empty game.Board
+	return choose(empty, 1, game.LegalMoves(empty), engine.Options{Budget: d})
+}
+
 func main() {
 	cfg, err := config.Load(os.Getenv)
 	if err != nil {
@@ -45,6 +52,9 @@ func main() {
 
 	// connected lo escribe el loop del árbitro y lo lee GET /health.
 	// atomic.Bool se puede usar desde varias goroutines sin mutex.
+	w := warmUp(engine.ChooseMove, time.Second)
+	slog.Info("engine warm-up", "depth", w.Depth, "nodes", w.Nodes, "elapsed_ms", w.Elapsed.Milliseconds())
+
 	var connected atomic.Bool
 	if cfg.ArbiterURL != "" {
 		client := arbiter.NewClient(cfg.ArbiterURL, cfg.TeamToken)
