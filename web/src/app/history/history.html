@@ -1,0 +1,17 @@
+<div class="head">
+  <h2 class="label">Historial</h2>
+  <span class="count">{{ count() }}</span>
+</div>
+
+<ol class="list" aria-label="Jugadas, de la más reciente a la primera">
+  @for (entry of entries(); track entry.number; let first = $first) {
+    <li class="row" [class.row--last]="first">
+      <span class="number">{{ entry.number.toString().padStart(2, '0') }}</span>
+      <span class="chip" [class.chip--human]="entry.owner === 'human'" [class.chip--bot]="entry.owner === 'bot'"></span>
+      <span class="who">{{ entry.owner === 'human' ? 'Vos' : 'Bot' }}</span>
+      <span class="column">Columna {{ entry.column + 1 }}</span>
+    </li>
+  } @empty {
+    <li class="empty">Todavía no hay jugadas.</li>
+  }
+</ol>

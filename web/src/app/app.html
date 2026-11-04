@@ -36,15 +36,19 @@
     [retryIn]="retryIn()"
     [notice]="notice()"
   />
-  <app-toolbar
-    class="panel"
-    [mode]="toolbarMode()"
-    [first]="first()"
-    [busy]="busy()"
-    [showKeys]="humanTurn()"
-    (firstChange)="first.set($event)"
-    (newGame)="newGame()"
-    (backToSetup)="backToSetup()"
-    (retry)="retry()"
-  />
+  <section class="panel">
+    <app-toolbar
+      [mode]="toolbarMode()"
+      [first]="first()"
+      [busy]="busy()"
+      [showKeys]="humanTurn()"
+      (firstChange)="first.set($event)"
+      (newGame)="newGame()"
+      (backToSetup)="backToSetup()"
+      (retry)="retry()"
+    />
+    @if (phase() === 'game' && game(); as state) {
+      <app-history [state]="state" />
+    }
+  </section>
 </main>

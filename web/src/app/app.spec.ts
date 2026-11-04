@@ -225,4 +225,18 @@ describe('App', () => {
       expect(app.discs('human')).toBe(1);
     });
   });
+
+  describe('historial', () => {
+    it('no aparece en el inicio y suma tu jugada y la respuesta del bot', async () => {
+      const app = await start();
+      expect(app.host.querySelector('app-history')).toBeNull();
+
+      await app.click('Empezar partida');
+      app.columns()[0].click();
+      await app.settle();
+
+      const rows = Array.from(app.host.querySelectorAll('app-history .who'), (who) => who.textContent?.trim());
+      expect(rows).toEqual(['Bot', 'Vos']);
+    });
+  });
 });

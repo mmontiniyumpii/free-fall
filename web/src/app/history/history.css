@@ -1,0 +1,112 @@
+:host {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  margin: 0 28px 28px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-line);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 28px;
+}
+
+.label {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.075em;
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+
+.count {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-3);
+}
+
+/* La lista se desplaza dentro del panel: la página nunca se desplaza. */
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  margin: 4px -8px 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  scrollbar-color: var(--color-line-strong) transparent;
+  scrollbar-width: thin;
+}
+
+.row {
+  flex: none;
+  display: grid;
+  grid-template-columns: 24px 14px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  animation: enter 180ms var(--ease-standard);
+}
+
+.row--last {
+  background: var(--color-segment-bg);
+}
+
+.number,
+.column {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.number {
+  color: var(--color-text-3);
+}
+
+.column {
+  color: var(--color-text-2);
+}
+
+.chip {
+  position: relative;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.chip--human {
+  background: var(--color-accent);
+}
+
+.chip--bot {
+  background: var(--color-bot);
+}
+
+.chip--bot::after {
+  content: '';
+  position: absolute;
+  inset: 4px;
+  border-radius: 50%;
+  background: var(--color-panel);
+}
+
+.empty {
+  padding: 6px 8px;
+  font-size: 13px;
+  color: var(--color-text-3);
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}

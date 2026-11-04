@@ -11,6 +11,7 @@ import { Observable } from 'rxjs';
 
 import { Board } from './board/board';
 import { Confetti } from './confetti/confetti';
+import { History } from './history/history';
 import { Rules } from './rules/rules';
 import { classifyError } from './game/api-error';
 import { GameApi } from './game/game-api';
@@ -32,7 +33,7 @@ type Unanswered =
 
 @Component({
   selector: 'app-root',
-  imports: [Board, Confetti, Rules, Status, Toolbar],
+  imports: [Board, Confetti, History, Rules, Status, Toolbar],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
