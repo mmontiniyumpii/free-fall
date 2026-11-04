@@ -125,6 +125,22 @@ Tu última ficha se sigue viendo mientras tanto. Cuando vuelve la conexión, la 
 
 Si el bot se reinició, se pierden las partidas que estaban en curso. La app lo avisa con este mensaje. Tocá **Jugar de nuevo** para empezar otra.
 
+## 9. Ver una partida del torneo
+
+![Reproducción de una partida del torneo](capturas/09-reproduccion.png)
+
+Desde la pantalla de inicio, **Ver una partida del torneo** abre la reproducción de cualquier partida que haya jugado el bot contra otro equipo.
+
+1. **Cargá la partida.** Escribí su código (por ejemplo `g_7f3a`) o pegá un link que lo contenga (como `…/games/g_7f3a`), y tocá **Cargar**.
+2. **Mirá los equipos.** Aparecen los dos equipos con el color de sus fichas: el que abrió con fichas llenas y el otro con fichas huecas.
+3. **Recorré la partida.**
+   - Con los botones podés ir al inicio, retroceder, reproducir o pausar, avanzar e ir al final.
+   - La barra salta a cualquier jugada, y con el teclado las flechas **←** y **→** pasan de a una.
+   - En la lista de jugadas, tocá una para ir directo a ella. Al lado de cada jugada se ve cuánto tardó ese bot en decidir.
+4. **Al final** aparece cómo terminó y, si fue con cuatro en línea, se marca la línea ganadora.
+
+Mientras se reproduce no se puede jugar en el tablero. **Volver a jugar contra el bot** regresa al inicio.
+
 ## Preguntas frecuentes
 
 **¿Puedo deshacer una jugada?**
