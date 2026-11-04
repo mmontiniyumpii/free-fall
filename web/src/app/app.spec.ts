@@ -25,4 +25,21 @@ describe('App', () => {
     // El fixture tiene 6 fichas: 4 en la columna 3 y 2 en la columna 4.
     expect(host.querySelectorAll('app-board .disc').length).toBe(6);
   });
+
+  it('al hacer clic en una columna la ficha aparece abajo', async () => {
+    vi.useFakeTimers();
+    const fixture = TestBed.createComponent(App);
+    await vi.advanceTimersByTimeAsync(0);
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const column0 = host.querySelectorAll<HTMLElement>('app-board .column')[0];
+
+    column0.click();
+    await vi.advanceTimersByTimeAsync(1000);
+    fixture.detectChanges();
+
+    const cells = column0.querySelectorAll('.cell');
+    expect(cells[cells.length - 1].querySelector('.disc--human')).not.toBeNull();
+    vi.useRealTimers();
+  });
 });

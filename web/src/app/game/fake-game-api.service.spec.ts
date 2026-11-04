@@ -75,4 +75,21 @@ describe('FakeGameApiService', () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(answered).toBe(true);
   });
+
+  it('la ficha del humano cae abajo y las jugadas se acumulan', async () => {
+    vi.useFakeTimers();
+    const api = fakeApi('playing');
+    await firstValueFrom(api.create('human'));
+
+    const first = firstValueFrom(api.move('l_0001', 0));
+    await vi.advanceTimersByTimeAsync(1000);
+    const second = firstValueFrom(api.move('l_0001', 0));
+    await vi.advanceTimersByTimeAsync(1000);
+    const state = await second;
+
+    expect((await first).board[0][0]).toBe(1);
+    expect(state.board[0][0]).toBe(1);
+    expect(state.board[1][0]).toBe(1);
+    expect(state.history).toEqual([3, 4, 3, 4, 3, 3, 0, 0]);
+  });
 });

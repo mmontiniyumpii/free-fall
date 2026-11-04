@@ -1,25 +1,64 @@
-<div class="board">
-  <div class="lane" aria-hidden="true"></div>
-
-  <div class="grid" aria-label="Tablero de 8 columnas por 7 filas">
+<div class="board" (mouseleave)="focus(null)">
+  <!-- Carril: previsualización de la ficha y aviso de columna llena. También es zona de clic. -->
+  <div class="lane" aria-hidden="true">
     @for (column of columns(); track column.index) {
-      <div class="column" [attr.data-column]="column.index">
-        @for (cell of column.cells; track cell.row) {
-          <div class="cell" [attr.data-row]="cell.row">
-            <div class="hole">
-              @if (cell.owner) {
-                <div class="disc" [class.disc--human]="cell.owner === 'human'" [class.disc--bot]="cell.owner === 'bot'"></div>
-              }
-            </div>
-          </div>
+      <span
+        class="slot"
+        [class.slot--blocked]="interactive() && !column.legal"
+        (click)="select(column.index)"
+        (mouseenter)="focus(column.index)"
+      >
+        @if (column.focused) {
+          <span class="preview"></span>
         }
-      </div>
+        @if (interactive() && !column.legal) {
+          <span class="full" [class.full--invalid]="column.invalid">Llena</span>
+        }
+      </span>
+    }
+  </div>
+
+  <div class="grid" role="group" aria-label="Tablero de 8 columnas por 7 filas">
+    @for (column of columns(); track column.index) {
+      <button
+        type="button"
+        class="column"
+        [attr.data-column]="column.index"
+        [class.column--focused]="column.focused"
+        [class.column--blocked]="interactive() && !column.legal"
+        [class.column--invalid]="column.invalid"
+        [class.shake-a]="column.invalid && shakeTurn() % 2 === 0"
+        [class.shake-b]="column.invalid && shakeTurn() % 2 === 1"
+        [disabled]="!interactive()"
+        [attr.aria-disabled]="!column.legal"
+        [attr.aria-label]="'Columna ' + column.label + (column.legal ? '' : ', llena')"
+        (click)="select(column.index)"
+        (mouseenter)="focus(column.index)"
+        (focus)="focus(column.index)"
+        (blur)="focus(null)"
+      >
+        @for (cell of column.cells; track cell.row) {
+          <span class="cell" [attr.data-row]="cell.row">
+            <span class="hole">
+              @if (cell.ghost) {
+                <span class="ghost"></span>
+              }
+              @if (cell.owner) {
+                <span class="disc" [class.disc--human]="cell.owner === 'human'" [class.disc--bot]="cell.owner === 'bot'"></span>
+              }
+            </span>
+          </span>
+        }
+      </button>
     }
   </div>
 
   <div class="labels" aria-hidden="true">
     @for (column of columns(); track column.index) {
-      <span class="label">{{ column.label }}</span>
+      <span class="label" [class.label--focused]="column.focused" [class.label--full]="playing() && !column.legal">
+        {{ column.label }}
+        <span class="label-bar"></span>
+      </span>
     }
   </div>
 </div>

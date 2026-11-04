@@ -3,6 +3,7 @@
 :host {
   --cell-size: var(--cell, 80px);
   --board-pad: calc(var(--cell-size) * 0.2);
+  --disc-size: calc(var(--cell-size) * 0.8);
   display: block;
 }
 
@@ -11,10 +12,47 @@
   flex-direction: column;
 }
 
+/* Carril superior */
 .lane {
+  display: flex;
   height: calc(var(--cell-size) * 0.9);
+  padding: 0 var(--board-pad);
 }
 
+.slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--cell-size);
+}
+
+.slot--blocked {
+  cursor: not-allowed;
+}
+
+.preview {
+  width: var(--disc-size);
+  height: var(--disc-size);
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: inset 0 0 0 3px rgba(8, 30, 34, 0.18);
+  animation: fade-in 120ms var(--ease-standard);
+}
+
+.full {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-text-3);
+}
+
+.full--invalid {
+  color: var(--color-danger);
+  font-weight: 600;
+}
+
+/* Tablero */
 .grid {
   display: flex;
   padding: var(--board-pad);
@@ -26,10 +64,46 @@
 .column {
   display: flex;
   flex-direction: column;
+  padding: 0;
+  border: none;
   border-radius: var(--radius-column);
+  background: transparent;
+  font: inherit;
+  cursor: pointer;
+  transition: background 120ms var(--ease-standard);
+}
+
+.column:disabled {
+  cursor: default;
+}
+
+.column:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+.column--focused {
+  background: var(--color-column-hover);
+}
+
+.column--blocked {
+  cursor: not-allowed;
+}
+
+.column--invalid {
+  background: var(--color-invalid-column);
+}
+
+.shake-a {
+  animation: shake-a 300ms var(--ease-standard);
+}
+
+.shake-b {
+  animation: shake-b 300ms var(--ease-standard);
 }
 
 .cell {
+  display: block;
   width: var(--cell-size);
   height: var(--cell-size);
   padding: calc(var(--cell-size) * 0.1);
@@ -38,11 +112,21 @@
 
 .hole {
   position: relative;
+  display: block;
   width: 100%;
   height: 100%;
   border-radius: 50%;
   background: var(--color-hole);
   box-shadow: var(--hole-shadow);
+}
+
+/* Contorno punteado donde caería la ficha. */
+.ghost {
+  position: absolute;
+  inset: 0;
+  border: 2px dashed var(--color-accent);
+  border-radius: 50%;
+  animation: fade-in 120ms var(--ease-standard);
 }
 
 .disc {
@@ -71,6 +155,7 @@
   box-shadow: inset 0 1px 2px rgba(8, 30, 34, 0.25);
 }
 
+/* Etiquetas 1–8 */
 .labels {
   display: flex;
   padding: 0 var(--board-pad);
@@ -78,9 +163,53 @@
 }
 
 .label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
   width: var(--cell-size);
-  text-align: center;
   font-family: var(--font-mono);
   font-size: 12px;
   color: var(--color-text-3);
+}
+
+.label--full {
+  color: var(--color-faint);
+}
+
+.label--focused {
+  color: var(--color-text);
+  font-weight: 600;
+}
+
+.label-bar {
+  width: 14px;
+  height: 2px;
+  border-radius: 1px;
+}
+
+.label--focused .label-bar {
+  background: var(--color-accent);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+/* Dos animaciones idénticas: alternarlas reinicia el temblor en cada clic. */
+@keyframes shake-a {
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
+}
+
+@keyframes shake-b {
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(2px); }
 }
