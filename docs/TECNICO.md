@@ -39,3 +39,11 @@
 - Se implementa después de todo lo obligatorio.
 
 **Quién lo decidió.** Matias Montini (PO), a partir de una revisión de los planes. Los planes no se editaron para respetar las bases ("un plan escrito o reescrito después de programar" se califica como deficiente). La desviación queda explicada acá.
+
+### D2 — `FindWin` devuelve posiciones, no `Cell` (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_BACKEND.md` §4: `FindWin(b Board, row int, c Column) []Cell`.
+
+**Qué cambia.** `FindWin` devuelve `[]Pos`, con `type Pos struct{ Row, Col int }` agregado en `internal/game/types.go`. Devuelve exactamente 4 posiciones que incluyen la ficha jugada, ordenadas de abajo hacia arriba. `internal/api` las convierte a `winning_cells: [[fila, columna], ...]`.
+
+**Por qué.** En el mismo plan, `Cell` es el *contenido* de una casilla (0, 1 o 2), no una posición. Un `[]Cell` no puede representar la línea ganadora.
