@@ -3,7 +3,10 @@
   "private": true,
   "description": "Bot de Cuatro en línea 8x7 (Go) y aplicación web (Angular).",
   "scripts": {
-    "test": "cd bot && go test ./... -race -cover -coverprofile=coverage.out && go run ./cmd/covercheck coverage.out",
+    "postinstall": "npm --prefix web install --no-audit --no-fund",
+    "test": "npm run test:bot && npm run test:web",
+    "test:bot": "cd bot && go test ./... -race -cover -coverprofile=coverage.out && go run ./cmd/covercheck coverage.out",
+    "test:web": "npm --prefix web test -- --watch=false",
     "dev:web": "npm --prefix web start"
   }
 }
