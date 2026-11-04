@@ -55,6 +55,7 @@ Qué significa cada cosa:
 3. **Ayuda.** Indica la columna y la fila donde caería tu ficha.
 4. **Última jugada del bot.** Dato informativo: en qué columna jugó, hasta cuántas jugadas adelante miró y cuánto tardó. No hace falta para jugar.
 5. **Reiniciar.** Empieza una partida nueva con la misma configuración.
+   Debajo, **Cambiar configuración** vuelve a la pantalla de inicio para elegir de nuevo quién empieza y la dificultad. Como la partida en curso se pierde, antes pregunta: **Seguir jugando** (o la tecla Esc) cancela y **Volver al inicio** confirma.
 6. **Historial.** Todas las jugadas, de la más reciente a la primera, con quién jugó y en qué columna.
 
 ## 3. El bot está pensando

@@ -113,4 +113,16 @@ describe('Toolbar', () => {
 
     expect(events).toEqual(['openReplay']);
   });
+
+  it('durante la partida y sin conexión deja volver a la configuración (deshabilitado si hay un pedido en curso)', () => {
+    for (const mode of ['playing', 'offline'] as const) {
+      const { button, events } = render(mode);
+      button('Cambiar configuración')?.click();
+      expect(events).toEqual(['backToSetup']);
+      TestBed.resetTestingModule();
+    }
+
+    const { button } = render('playing', 'human', true);
+    expect(button('Cambiar configuración')?.disabled).toBe(true);
+  });
 });

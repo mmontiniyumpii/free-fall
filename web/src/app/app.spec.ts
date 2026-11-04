@@ -300,4 +300,57 @@ describe('App', () => {
     const demo = await start();
     expect(demo.host.querySelector('.demo-badge')?.textContent?.trim()).toBe('Bot simulado (demo)');
   });
+
+  describe('volver al inicio durante la partida', () => {
+    const confirmOpen = (app: Awaited<ReturnType<typeof start>>) =>
+      app.host.querySelector<HTMLDialogElement>('app-confirm dialog')?.open ?? false;
+
+    it('pide confirmación; "Seguir jugando" conserva la partida', async () => {
+      stubDialog();
+      const app = await start();
+      await app.click('Empezar partida');
+      app.columns()[0].click();
+      await app.settle();
+
+      await app.click('Cambiar configuración');
+      expect(confirmOpen(app)).toBe(true);
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: '2' }));
+      await app.settle();
+      expect(app.discs('human')).toBe(1);
+
+      await app.click('Seguir jugando');
+      expect(confirmOpen(app)).toBe(false);
+      expect(app.title()).toBe('Tu turno');
+      expect(app.discs('human')).toBe(1);
+    });
+
+    it('"Volver al inicio" descarta la partida y deja elegir de nuevo la dificultad', async () => {
+      stubDialog();
+      const app = await start();
+      await app.click('Fácil');
+      await app.click('Empezar partida');
+      app.columns()[0].click();
+      await app.settle();
+
+      await app.click('Cambiar configuración');
+      await app.click('Volver al inicio');
+
+      expect(app.title()).toBe('Cuatro en línea');
+      expect(app.host.querySelector('app-board .disc')).toBeNull();
+      expect(app.button('Fácil')?.getAttribute('aria-pressed')).toBe('true');
+      await app.click('Normal');
+      expect(app.button('Normal')?.getAttribute('aria-pressed')).toBe('true');
+    });
+
+    it('con la partida terminada vuelve directo, sin preguntar', async () => {
+      stubDialog();
+      const app = await start('won');
+      await app.click('Empezar partida');
+
+      await app.click('Cambiar configuración');
+
+      expect(confirmOpen(app)).toBe(false);
+      expect(app.title()).toBe('Cuatro en línea');
+    });
+  });
 });

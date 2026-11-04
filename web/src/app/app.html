@@ -22,6 +22,15 @@
 </header>
 
 <app-rules [open]="rulesOpen()" [touch]="touch" (closed)="rulesOpen.set(false)" />
+<app-confirm
+  [open]="confirmLeaveOpen()"
+  heading="¿Volver al inicio?"
+  message="La partida en curso se pierde. Vas a poder elegir de nuevo quién empieza y la dificultad."
+  confirmLabel="Volver al inicio"
+  cancelLabel="Seguir jugando"
+  (confirmed)="confirmLeave()"
+  (cancelled)="confirmLeaveOpen.set(false)"
+/>
 
 <main class="layout">
   <section class="board-area">
@@ -63,7 +72,7 @@
         (firstChange)="first.set($event)"
         (difficultyChange)="difficulty.set($event)"
         (newGame)="newGame()"
-        (backToSetup)="backToSetup()"
+        (backToSetup)="requestBackToSetup()"
         (retry)="retry()"
         (openReplay)="openReplay()"
       />

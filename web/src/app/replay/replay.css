@@ -266,8 +266,12 @@ kbd {
 
 .ghost {
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   border: none;
-  background: transparent;
+  background: var(--color-segment-bg);
 }
 
 button:focus-visible,
@@ -278,9 +282,12 @@ button:focus-visible,
 
 @media (hover: hover) {
   .move:hover,
-  .secondary:hover:not(:disabled),
-  .ghost:hover {
+  .secondary:hover:not(:disabled) {
     background: var(--color-segment-bg);
+  }
+
+  .ghost:hover {
+    background: var(--color-line);
   }
 }
 

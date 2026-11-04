@@ -38,7 +38,14 @@
       <p class="field-detail">{{ difficultyDetail() }}</p>
     </fieldset>
     <button type="button" class="primary" [disabled]="busy()" (click)="newGame.emit()">Empezar partida</button>
-    <button type="button" class="ghost" [disabled]="busy()" (click)="openReplay.emit()">Ver una partida del torneo</button>
+    <button type="button" class="ghost" [disabled]="busy()" (click)="openReplay.emit()">
+      <!-- Ícono circle-play de Lucide (ISC). -->
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="10" />
+        <path d="m10 8 6 4-6 4z" />
+      </svg>
+      Ver una partida del torneo
+    </button>
   }
   @case ('playing') {
     <button type="button" class="secondary" [disabled]="busy()" (click)="newGame.emit()">
@@ -48,6 +55,13 @@
         <path d="M3 3v5h5" />
       </svg>
       Reiniciar
+    </button>
+    <button type="button" class="ghost" [disabled]="busy()" (click)="backToSetup.emit()">
+      <!-- Ícono sliders-horizontal de Lucide (ISC), como en el diseño. -->
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4" />
+      </svg>
+      Cambiar configuración
     </button>
   }
   @case ('offline') {
@@ -70,10 +84,23 @@
         Reiniciar
       </button>
     </div>
+    <button type="button" class="ghost" [disabled]="busy()" (click)="backToSetup.emit()">
+      <!-- Ícono sliders-horizontal de Lucide (ISC), como en el diseño. -->
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4" />
+      </svg>
+      Cambiar configuración
+    </button>
   }
   @case ('over') {
     <button type="button" class="primary" [disabled]="busy()" (click)="newGame.emit()">Jugar de nuevo</button>
-    <button type="button" class="ghost" [disabled]="busy()" (click)="backToSetup.emit()">Cambiar configuración</button>
+    <button type="button" class="ghost" [disabled]="busy()" (click)="backToSetup.emit()">
+      <!-- Ícono sliders-horizontal de Lucide (ISC), como en el diseño. -->
+      <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M21 4h-7M10 4H3M21 12h-9M8 12H3M21 20h-5M12 20H3M14 2v4M8 10v4M16 18v4" />
+      </svg>
+      Cambiar configuración
+    </button>
   }
 }
 

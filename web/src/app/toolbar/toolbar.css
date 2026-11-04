@@ -181,9 +181,16 @@
   background: var(--color-segment-bg);
 }
 
+/* Terciario: fondo gris suave para que se lea como botón sin competir con el
+   principal (relleno de color) ni con el secundario (con borde). */
 .ghost {
   border: none;
-  background: transparent;
+  background: var(--color-segment-bg);
+  color: var(--color-text);
+}
+
+.ghost:hover:not(:disabled) {
+  background: var(--color-line);
 }
 
 button:disabled {

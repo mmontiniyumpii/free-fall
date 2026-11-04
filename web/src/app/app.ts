@@ -11,6 +11,7 @@ import { Observable } from 'rxjs';
 
 import { Board } from './board/board';
 import { Confetti } from './confetti/confetti';
+import { Confirm } from './confirm/confirm';
 import { TOUCH_INPUT } from './device';
 import { USING_FAKE_API } from './game/fake-game-api.service';
 import { History } from './history/history';
@@ -37,7 +38,7 @@ type Unanswered =
 
 @Component({
   selector: 'app-root',
-  imports: [Board, Confetti, History, Replay, Rules, Status, Toolbar],
+  imports: [Board, Confetti, Confirm, History, Replay, Rules, Status, Toolbar],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -73,6 +74,8 @@ export class App {
   protected readonly rejectedColumn = signal<number | null>(null);
   /** Modal de reglas abierto: el tablero no responde (ni a las teclas 1 a 8). */
   protected readonly rulesOpen = signal(false);
+  /** Confirmación de volver al inicio con una partida en curso. */
+  protected readonly confirmLeaveOpen = signal(false);
 
   private unanswered: Unanswered | null = null;
   private countdown: ReturnType<typeof setInterval> | undefined;
@@ -91,6 +94,7 @@ export class App {
       this.offline() ||
       this.notice() !== null ||
       this.rulesOpen() ||
+      this.confirmLeaveOpen() ||
       this.phase() === 'replay',
   );
 
@@ -140,6 +144,21 @@ export class App {
   protected closeReplay(): void {
     this.replayFrame.set(null);
     this.phase.set('setup');
+  }
+
+  /** Volver al inicio: si hay una partida en curso, primero se pide confirmación. */
+  protected requestBackToSetup(): void {
+    if (this.busy()) return;
+    if (this.game()?.status === 'playing') {
+      this.confirmLeaveOpen.set(true);
+      return;
+    }
+    this.backToSetup();
+  }
+
+  protected confirmLeave(): void {
+    this.confirmLeaveOpen.set(false);
+    this.backToSetup();
   }
 
   protected backToSetup(): void {

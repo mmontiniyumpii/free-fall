@@ -1,0 +1,17 @@
+<dialog
+  #dialog
+  class="dialog"
+  aria-labelledby="confirm-title"
+  aria-describedby="confirm-message"
+  (close)="onClose()"
+  (click)="closeOnBackdrop($event)"
+>
+  <div class="content">
+    <h2 id="confirm-title" class="title">{{ heading() }}</h2>
+    <p id="confirm-message" class="message">{{ message() }}</p>
+    <div class="actions">
+      <button type="button" class="secondary" autofocus (click)="answer('cancel')">{{ cancelLabel() }}</button>
+      <button type="button" class="primary" (click)="answer('confirm')">{{ confirmLabel() }}</button>
+    </div>
+  </div>
+</dialog>
