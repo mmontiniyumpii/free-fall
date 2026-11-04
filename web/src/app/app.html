@@ -1,0 +1,13 @@
+<header class="topbar">
+  <span class="brand">Cuatro en línea</span>
+</header>
+
+<main class="layout">
+  <section class="board-area">
+    @if (game(); as state) {
+      <app-board [state]="state" />
+    }
+  </section>
+  <section class="status"></section>
+  <section class="panel"></section>
+</main>

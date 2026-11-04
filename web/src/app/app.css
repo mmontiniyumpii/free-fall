@@ -1,0 +1,68 @@
+/* Layout de escritorio del diseño: barra de 56, tablero centrado y panel fijo
+   de 380 a la derecha. */
+:host {
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.topbar {
+  flex: none;
+  display: flex;
+  align-items: center;
+  height: 56px;
+  padding: 0 24px;
+  border-bottom: 1px solid var(--color-line);
+  background: var(--color-panel);
+  box-sizing: border-box;
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-stretch: 80%;
+  font-weight: 700;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: -0.01em;
+}
+
+.layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  grid-template-rows: auto minmax(0, 1fr);
+  grid-template-areas:
+    'board status'
+    'board panel';
+}
+
+/* La celda del diseño mide 80 px; se achica para que el tablero entre entero
+   en una laptop (1366×768 o menos de alto útil). Fuera de la celda el tablero
+   ocupa 136 px de alto (barra, relleno, etiquetas) y 428 px de ancho (panel,
+   relleno); por celda, 8,3 de alto (7 filas + carril + relleno) y 8,4 de ancho. */
+.board-area {
+  grid-area: board;
+  --cell: clamp(36px, min((100dvh - 136px) / 8.3, (100vw - 428px) / 8.4), 80px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.status,
+.panel {
+  background: var(--color-panel);
+  border-left: 1px solid var(--color-line);
+}
+
+.status {
+  grid-area: status;
+}
+
+.panel {
+  grid-area: panel;
+}

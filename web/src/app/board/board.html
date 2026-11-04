@@ -1,0 +1,25 @@
+<div class="board">
+  <div class="lane" aria-hidden="true"></div>
+
+  <div class="grid" aria-label="Tablero de 8 columnas por 7 filas">
+    @for (column of columns(); track column.index) {
+      <div class="column" [attr.data-column]="column.index">
+        @for (cell of column.cells; track cell.row) {
+          <div class="cell" [attr.data-row]="cell.row">
+            <div class="hole">
+              @if (cell.owner) {
+                <div class="disc" [class.disc--human]="cell.owner === 'human'" [class.disc--bot]="cell.owner === 'bot'"></div>
+              }
+            </div>
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <div class="labels" aria-hidden="true">
+    @for (column of columns(); track column.index) {
+      <span class="label">{{ column.label }}</span>
+    }
+  </div>
+</div>

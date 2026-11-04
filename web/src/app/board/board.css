@@ -1,0 +1,86 @@
+/* Medidas del diseño en escritorio con celda de 80: ficha 64, carril 72,
+   relleno 16. Todo es proporcional a --cell, que define el layout. */
+:host {
+  --cell-size: var(--cell, 80px);
+  --board-pad: calc(var(--cell-size) * 0.2);
+  display: block;
+}
+
+.board {
+  display: flex;
+  flex-direction: column;
+}
+
+.lane {
+  height: calc(var(--cell-size) * 0.9);
+}
+
+.grid {
+  display: flex;
+  padding: var(--board-pad);
+  background: var(--color-board);
+  border-radius: var(--radius-board);
+  box-shadow: var(--board-edge);
+}
+
+.column {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-column);
+}
+
+.cell {
+  width: var(--cell-size);
+  height: var(--cell-size);
+  padding: calc(var(--cell-size) * 0.1);
+  box-sizing: border-box;
+}
+
+.hole {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background: var(--color-hole);
+  box-shadow: var(--hole-shadow);
+}
+
+.disc {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+}
+
+/* Humano: disco lleno en el color de acento. */
+.disc--human {
+  background: var(--color-accent);
+  box-shadow: inset 0 0 0 3px rgba(8, 30, 34, 0.18);
+}
+
+/* Bot: disco azul con el centro hueco; se distingue por forma, no solo por color. */
+.disc--bot {
+  background: var(--color-bot);
+}
+
+.disc--bot::after {
+  content: '';
+  position: absolute;
+  inset: 31%;
+  border-radius: 50%;
+  background: var(--color-hole);
+  box-shadow: inset 0 1px 2px rgba(8, 30, 34, 0.25);
+}
+
+.labels {
+  display: flex;
+  padding: 0 var(--board-pad);
+  margin-top: 10px;
+}
+
+.label {
+  width: var(--cell-size);
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--color-text-3);
+}
