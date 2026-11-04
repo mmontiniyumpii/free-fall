@@ -4,7 +4,7 @@
   [class.board--won]="ending() === 'won'"
   [class.board--lost]="ending() === 'lost'"
   [class.board--draw]="ending() === 'draw'"
-  (mouseleave)="focus(null)"
+  (mouseleave)="pointerFocus(null)"
 >
   <!-- Carril: previsualización de la ficha y aviso de columna llena. También es zona de clic. -->
   <div class="lane" aria-hidden="true">
@@ -13,7 +13,7 @@
         class="slot"
         [class.slot--blocked]="interactive() && !column.legal"
         (click)="select(column.index)"
-        (mouseenter)="focus(column.index)"
+        (mouseenter)="pointerFocus(column.index)"
       >
         @if (column.focused) {
           <span class="preview"></span>
@@ -56,9 +56,9 @@
         [attr.aria-disabled]="!column.legal"
         [attr.aria-label]="'Columna ' + column.label + (column.legal ? '' : ', llena')"
         (click)="select(column.index)"
-        (mouseenter)="focus(column.index)"
-        (focus)="focus(column.index)"
-        (blur)="focus(null)"
+        (mouseenter)="pointerFocus(column.index)"
+        (focus)="pointerFocus(column.index)"
+        (blur)="pointerFocus(null)"
       >
         @for (cell of column.cells; track cell.row) {
           <span class="cell" [attr.data-row]="cell.row">

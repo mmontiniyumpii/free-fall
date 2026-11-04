@@ -72,4 +72,18 @@ describe('Rules', () => {
       expect(mini.querySelectorAll('.mini-dot--win').length).toBe(4);
     }
   });
+
+  it('en táctil explica cómo jugar tocando, sin mouse ni teclas', () => {
+    const { host } = setup();
+    expect(host.textContent).toContain('Pasá el mouse');
+
+    const fixture = TestBed.createComponent(Rules);
+    fixture.componentRef.setInput('touch', true);
+    fixture.detectChanges();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+
+    expect(text).toContain('Tocá de nuevo la misma columna para soltarla.');
+    expect(text).not.toContain('Pasá el mouse');
+    expect(text).not.toContain('teclas');
+  });
 });

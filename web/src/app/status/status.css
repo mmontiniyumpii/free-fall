@@ -210,3 +210,34 @@
   text-transform: uppercase;
   letter-spacing: 0.075em;
 }
+
+/* Teléfono: título más chico y el indicador de turno arriba a la derecha, en la fila del eyebrow. */
+@media (max-width: 759px) {
+  :host {
+    position: relative;
+    row-gap: 4px;
+    padding: 14px 16px 8px;
+  }
+
+  .title-row {
+    min-height: 32px;
+  }
+
+  .title {
+    font-size: 28px;
+  }
+
+  .detail {
+    min-height: 0;
+    font-size: 13px;
+  }
+
+  .turn {
+    position: absolute;
+    top: 8px;
+    right: 16px;
+    width: 136px;
+    height: 32px;
+    margin-top: 0;
+  }
+}

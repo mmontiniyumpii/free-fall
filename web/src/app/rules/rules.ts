@@ -35,6 +35,8 @@ function grid(winsIn: (row: number) => number[]): Dot[][] {
 })
 export class Rules {
   readonly open = input(false);
+  /** Dispositivo táctil: las instrucciones hablan de tocar, no de mouse ni teclas. */
+  readonly touch = input(false);
   /** Se cerró por la ×, "Entendido", Esc o un clic afuera. */
   readonly closed = output<void>();
 

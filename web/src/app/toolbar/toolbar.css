@@ -206,3 +206,13 @@ kbd {
     transform: translateY(4px);
   }
 }
+
+@media (max-width: 759px) {
+  :host {
+    padding: 8px 16px 16px;
+  }
+
+  .starter {
+    height: 48px;
+  }
+}

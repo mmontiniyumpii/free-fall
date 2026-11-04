@@ -86,9 +86,12 @@
   transition: background 120ms var(--ease-standard);
 }
 
-.icon-button:hover {
-  background: var(--color-segment-bg);
-  color: var(--color-text);
+/* Solo con hover real: en táctil el hover queda "pegado" después del toque. */
+@media (hover: hover) {
+  .icon-button:hover {
+    background: var(--color-segment-bg);
+    color: var(--color-text);
+  }
 }
 
 .icon-button:focus-visible {
@@ -104,4 +107,40 @@
   stroke-width: 1.6;
   stroke-linecap: round;
   stroke-linejoin: round;
+}
+
+/* Teléfono (diseño mobile, < 760 px): una columna, estado arriba, tablero y
+   panel abajo. La página se desplaza en vertical, nunca en horizontal. La celda
+   sale del ancho: 8,4 celdas (8 + relleno) en el ancho menos 16 px por lado. */
+@media (max-width: 759px) {
+  :host {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+
+  .topbar {
+    height: 52px;
+    padding: 0 16px;
+  }
+
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto auto;
+    grid-template-areas:
+      'status'
+      'board'
+      'panel';
+  }
+
+  .board-area {
+    --cell: clamp(30px, (100vw - 32px) / 8.4, 56px);
+    padding: 4px 16px 12px;
+    background: var(--color-panel);
+  }
+
+  .status,
+  .panel {
+    border-left: none;
+  }
 }

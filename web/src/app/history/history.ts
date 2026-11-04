@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input, signal } from '@angular/core';
 
 import { GameState } from '../game/game-state';
 import { moveHistory } from '../game/move-history';
@@ -12,6 +12,9 @@ import { moveHistory } from '../game/move-history';
 })
 export class History {
   readonly state = input.required<GameState>();
+
+  /** En teléfono el historial arranca plegado (diseño); en escritorio siempre se ve. */
+  protected readonly expanded = signal(false);
 
   protected readonly entries = computed(() => moveHistory(this.state()).reverse());
 

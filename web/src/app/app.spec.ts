@@ -1,12 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 
 import { App, RETRY_SECONDS } from './app';
+import { TOUCH_INPUT } from './device';
 import { FAKE_SCENARIO, FAKE_THINK_MS, FakeGameApiService } from './game/fake-game-api.service';
 import { FakeScenario } from './game/fake-scenarios';
 import { GameApi } from './game/game-api';
 import { stubDialog } from './testing/dialog-stub';
 
-async function start(scenario: FakeScenario = 'playing') {
+async function start(scenario: FakeScenario = 'playing', touch = false) {
   TestBed.configureTestingModule({
     imports: [App],
     providers: [
@@ -14,6 +15,7 @@ async function start(scenario: FakeScenario = 'playing') {
       { provide: FAKE_SCENARIO, useValue: scenario },
       { provide: FAKE_THINK_MS, useValue: 0 },
       { provide: RETRY_SECONDS, useValue: 1 },
+      { provide: TOUCH_INPUT, useValue: touch },
     ],
   });
   const fixture = TestBed.createComponent(App);
@@ -238,5 +240,22 @@ describe('App', () => {
       const rows = Array.from(app.host.querySelectorAll('app-history .who'), (who) => who.textContent?.trim());
       expect(rows).toEqual(['Bot', 'Vos']);
     });
+  });
+
+  it('en táctil se juega con dos toques y no se muestra la ayuda de teclas', async () => {
+    const app = await start('playing', true);
+    await app.click('Empezar partida');
+    expect(app.host.querySelector('.hint')).toBeNull();
+
+    app.columns()[2].click();
+    await app.settle();
+    expect(app.discs('human')).toBe(0);
+    expect(app.host.querySelector('app-status .detail')?.textContent).toBe(
+      'Tocá de nuevo la columna 3 para soltar.',
+    );
+
+    app.columns()[2].click();
+    await app.settle();
+    expect(app.discs('human')).toBe(1);
   });
 });

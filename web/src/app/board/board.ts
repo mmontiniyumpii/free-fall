@@ -94,6 +94,8 @@ export class Board {
   readonly pendingColumn = input<number | null>(null);
   /** Sin conexión con el bot: tablero atenuado y aviso en el carril. */
   readonly offline = input(false);
+  /** Toque en dos pasos (diseño mobile): el primer toque previsualiza, el segundo suelta. */
+  readonly touch = input(false);
 
   /** Solo emite columnas incluidas en `legal_moves`. */
   readonly columnSelected = output<number>();
@@ -210,7 +212,21 @@ export class Board {
     inject(DestroyRef).onDestroy(() => clearTimeout(this.invalidTimer));
   }
 
+  /** Clic o toque en una columna. */
   protected select(column: number): void {
+    if (this.touch() && this.interactive() && this.isLegal(column) && this.hovered() !== column) {
+      this.focus(column);
+      return;
+    }
+    this.play(column);
+  }
+
+  /** Mouse y foco solo previsualizan con hover; en táctil, el navegador los dispara en el mismo toque. */
+  protected pointerFocus(column: number | null): void {
+    if (!this.touch()) this.focus(column);
+  }
+
+  private play(column: number): void {
     if (!this.interactive()) return;
     if (!this.isLegal(column)) {
       this.flagInvalid(column);
@@ -220,7 +236,7 @@ export class Board {
     this.columnSelected.emit(column);
   }
 
-  protected focus(column: number | null): void {
+  private focus(column: number | null): void {
     this.hovered.set(column);
     const shown = column !== null && this.interactive() && this.isLegal(column) ? column : null;
     this.columnFocused.emit(shown);
@@ -234,7 +250,8 @@ export class Board {
   protected onKeydown(event: KeyboardEvent): void {
     if (event.metaKey || event.ctrlKey || event.altKey) return;
     const column = Number.parseInt(event.key, 10) - 1;
-    if (column >= 0 && column < COLUMNS) this.select(column);
+    // Con teclado no hace falta confirmar: la tecla ya es una elección explícita.
+    if (column >= 0 && column < COLUMNS) this.play(column);
   }
 
   private flagInvalid(column: number): void {

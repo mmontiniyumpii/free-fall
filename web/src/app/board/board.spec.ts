@@ -388,4 +388,65 @@ describe('Board', () => {
       expect(ending(render(state))).toBe('won');
     });
   });
+
+  describe('toque en dos pasos (teléfono)', () => {
+    function touchSetup() {
+      const view = setup(fakeState('fixture'));
+      view.fixture.componentRef.setInput('touch', true);
+      view.fixture.detectChanges();
+      return view;
+    }
+
+    it('el primer toque previsualiza y el segundo en la misma columna suelta', () => {
+      const { fixture, column, selected, host } = touchSetup();
+
+      column(5).click();
+      fixture.detectChanges();
+      expect(selected).toEqual([]);
+      expect(host.querySelectorAll('.slot')[5].querySelector('.preview')).not.toBeNull();
+
+      column(5).click();
+      expect(selected).toEqual([5]);
+    });
+
+    it('tocar otra columna mueve la previsualización sin soltar', () => {
+      const { fixture, column, selected, focused } = touchSetup();
+
+      column(5).click();
+      column(2).click();
+      fixture.detectChanges();
+
+      expect(selected).toEqual([]);
+      expect(focused).toEqual([5, 2]);
+    });
+
+    it('el mouseenter y el foco que dispara el propio toque no cuentan como primer paso', () => {
+      const { column, selected } = touchSetup();
+
+      column(5).dispatchEvent(new MouseEvent('mouseenter'));
+      column(5).dispatchEvent(new FocusEvent('focus'));
+      column(5).click();
+
+      expect(selected).toEqual([]);
+    });
+
+    it('una columna llena se avisa al primer toque', () => {
+      const view = setup(withFullColumnZero());
+      view.fixture.componentRef.setInput('touch', true);
+      view.fixture.detectChanges();
+
+      view.column(0).click();
+
+      expect(view.rejected).toEqual([0]);
+      expect(view.selected).toEqual([]);
+    });
+
+    it('con teclado no hace falta confirmar', () => {
+      const { selected } = touchSetup();
+
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: '6' }));
+
+      expect(selected).toEqual([5]);
+    });
+  });
 });

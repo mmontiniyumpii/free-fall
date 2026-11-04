@@ -1,9 +1,17 @@
-<div class="head">
-  <h2 class="label">Historial</h2>
-  <span class="count">{{ count() }}</span>
-</div>
+<h2 class="head">
+  <button type="button" class="toggle" [attr.aria-expanded]="expanded()" (click)="expanded.set(!expanded())">
+    <span class="label">Historial</span>
+    <span class="count">
+      {{ count() }}
+      <!-- Ícono chevron-down de Lucide (ISC); solo se ve en teléfono. -->
+      <svg class="chevron" [class.chevron--open]="expanded()" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="m6 9 6 6 6-6" />
+      </svg>
+    </span>
+  </button>
+</h2>
 
-<ol class="list" aria-label="Jugadas, de la más reciente a la primera">
+<ol class="list" [class.list--collapsed]="!expanded()" aria-label="Jugadas, de la más reciente a la primera">
   @for (entry of entries(); track entry.number; let first = $first) {
     <li class="row" [class.row--last]="first">
       <span class="number">{{ entry.number.toString().padStart(2, '0') }}</span>

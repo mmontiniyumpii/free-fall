@@ -10,7 +10,7 @@
   </button>
 </header>
 
-<app-rules [open]="rulesOpen()" (closed)="rulesOpen.set(false)" />
+<app-rules [open]="rulesOpen()" [touch]="touch" (closed)="rulesOpen.set(false)" />
 
 <main class="layout">
   <section class="board-area">
@@ -19,6 +19,7 @@
       [disabled]="boardLocked()"
       [pendingColumn]="pendingColumn()"
       [offline]="offline()"
+      [touch]="touch"
       (columnSelected)="play($event)"
       (columnFocused)="focusedColumn.set($event)"
       (columnRejected)="rejectedColumn.set($event)"
@@ -35,13 +36,14 @@
     [rejectedColumn]="rejectedColumn()"
     [retryIn]="retryIn()"
     [notice]="notice()"
+    [touch]="touch"
   />
   <section class="panel">
     <app-toolbar
       [mode]="toolbarMode()"
       [first]="first()"
       [busy]="busy()"
-      [showKeys]="humanTurn()"
+      [showKeys]="humanTurn() && !touch"
       (firstChange)="first.set($event)"
       (newGame)="newGame()"
       (backToSetup)="backToSetup()"

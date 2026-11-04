@@ -54,4 +54,21 @@ describe('History', () => {
     expect(view.count).toBe('0 jugadas');
     expect(view.host.querySelector('.empty')?.textContent).toContain('Todavía no hay jugadas.');
   });
+
+  it('el encabezado pliega y despliega la lista (en teléfono la oculta el CSS)', () => {
+    const fixture = TestBed.createComponent(History);
+    fixture.componentRef.setInput('state', fakeState('fixture'));
+    fixture.detectChanges();
+    const host = fixture.nativeElement as HTMLElement;
+    const toggle = host.querySelector('.toggle') as HTMLButtonElement;
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(host.querySelector('.list--collapsed')).not.toBeNull();
+
+    toggle.click();
+    fixture.detectChanges();
+
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(host.querySelector('.list--collapsed')).toBeNull();
+  });
 });

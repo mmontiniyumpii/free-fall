@@ -11,6 +11,7 @@ import { Observable } from 'rxjs';
 
 import { Board } from './board/board';
 import { Confetti } from './confetti/confetti';
+import { TOUCH_INPUT } from './device';
 import { History } from './history/history';
 import { Rules } from './rules/rules';
 import { classifyError } from './game/api-error';
@@ -41,6 +42,7 @@ type Unanswered =
 export class App {
   private readonly api = inject(GameApi);
   private readonly retrySeconds = inject(RETRY_SECONDS);
+  protected readonly touch = inject(TOUCH_INPUT);
 
   /** Único estado de la partida: lo que devolvió la API, sin derivar reglas. `null` en el inicio. */
   protected readonly game = signal<GameState | null>(null);

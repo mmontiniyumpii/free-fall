@@ -46,6 +46,8 @@ export class Status {
   /** Segundos hasta el próximo reintento; null si hay conexión. */
   readonly retryIn = input<number | null>(null);
   readonly notice = input<StatusNotice | null>(null);
+  /** Toque en dos pasos: los textos de ayuda hablan de tocar. */
+  readonly touch = input(false);
 
   /** Datos de la última jugada del bot (last_bot), como información. */
   protected readonly botInfo = computed<string | null>(() => {
@@ -152,6 +154,11 @@ export class Status {
       return { detail: `La columna ${rejected + 1} está llena. Elegí otra.`, warning: true };
     }
     const focused = this.focusedColumn();
+    if (this.touch()) {
+      return focused === null
+        ? { detail: 'Tocá una columna para ver dónde cae.', warning: false }
+        : { detail: `Tocá de nuevo la columna ${focused + 1} para soltar.`, warning: false };
+    }
     const row = focused === null ? null : landingRow(state.board, focused);
     if (focused !== null && row !== null) {
       return { detail: `Columna ${focused + 1} · cae en la fila ${row + 1}.`, warning: false };

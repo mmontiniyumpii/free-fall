@@ -2,6 +2,7 @@
   width: min(520px, calc(100vw - 32px));
   max-height: calc(100dvh - 48px);
   padding: 0;
+  overflow: hidden;
   border: 1px solid var(--color-line);
   border-radius: 16px;
   background: var(--color-panel);
@@ -17,18 +18,39 @@
   background: rgba(11, 13, 17, 0.45);
 }
 
-.content {
+/* Encabezado y botón fijos; solo el contenido del medio se desplaza. */
+.sheet {
   display: flex;
   flex-direction: column;
-  gap: 18px;
-  padding: 28px;
+  max-height: inherit;
 }
 
 .head {
+  flex: none;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
+  padding: 24px 28px 16px;
+  border-bottom: 1px solid var(--color-line);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  padding: 20px 28px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.foot {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 28px 24px;
+  border-top: 1px solid var(--color-line);
 }
 
 .eyebrow {
@@ -166,8 +188,10 @@ kbd {
   cursor: pointer;
 }
 
-.icon-button:hover {
-  background: var(--color-segment-bg);
+@media (hover: hover) {
+  .icon-button:hover {
+    background: var(--color-segment-bg);
+  }
 }
 
 .icon {
@@ -205,5 +229,60 @@ button:focus-visible {
   from {
     opacity: 0;
     transform: translateY(8px) scale(0.98);
+  }
+}
+
+/* Teléfono: hoja que sube desde abajo, de todo el ancho, con el botón al alcance del pulgar. */
+@media (max-width: 759px) {
+  .dialog {
+    width: 100%;
+    max-width: 100%;
+    max-height: 88dvh;
+    margin: auto 0 0;
+    border: none;
+    border-radius: 20px 20px 0 0;
+  }
+
+  .dialog[open] {
+    animation: sheet-up 240ms var(--ease-standard);
+  }
+
+  /* Agarradera decorativa: indica que es una hoja. */
+  .sheet::before {
+    content: '';
+    align-self: center;
+    width: 36px;
+    height: 4px;
+    margin-top: 8px;
+    border-radius: 2px;
+    background: var(--color-line-strong);
+  }
+
+  .head {
+    padding: 12px 20px 12px;
+  }
+
+  .title {
+    font-size: 26px;
+  }
+
+  .body {
+    gap: 16px;
+    padding: 16px 20px;
+  }
+
+  .examples {
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .foot {
+    padding: 12px 20px calc(16px + env(safe-area-inset-bottom));
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
   }
 }

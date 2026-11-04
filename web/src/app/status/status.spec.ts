@@ -10,6 +10,7 @@ interface Inputs {
   rejectedColumn?: number | null;
   retryIn?: number | null;
   notice?: { title: string; detail: string } | null;
+  touch?: boolean;
 }
 
 function render(state: GameState | null, inputs: Inputs = {}) {
@@ -137,5 +138,14 @@ describe('Status', () => {
     expect(has(fakeState('fixture'), { retryIn: 3 })).toBe(false);
     expect(has(fakeState('playing', 'human'))).toBe(false);
     expect(has(null)).toBe(false);
+  });
+
+  it('en táctil la ayuda habla de tocar y de confirmar con un segundo toque', () => {
+    expect(render(fakeState('fixture'), { touch: true }).detail).toBe(
+      'Tocá una columna para ver dónde cae.',
+    );
+    expect(render(fakeState('fixture'), { touch: true, focusedColumn: 5 }).detail).toBe(
+      'Tocá de nuevo la columna 6 para soltar.',
+    );
   });
 });
