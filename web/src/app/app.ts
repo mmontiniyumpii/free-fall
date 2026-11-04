@@ -10,6 +10,7 @@ import {
 import { Observable } from 'rxjs';
 
 import { Board } from './board/board';
+import { Confetti } from './confetti/confetti';
 import { classifyError } from './game/api-error';
 import { GameApi } from './game/game-api';
 import { ApiError, FirstPlayer, GameState } from './game/game-state';
@@ -30,7 +31,7 @@ type Unanswered =
 
 @Component({
   selector: 'app-root',
-  imports: [Board, Status, Toolbar],
+  imports: [Board, Confetti, Status, Toolbar],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -75,6 +76,12 @@ export class App {
     if (this.offline()) return 'offline';
     if (this.notice() || (game && game.status !== 'playing')) return 'over';
     return 'playing';
+  });
+
+  /** Ganó el humano (según status, winner y human): lluvia de confeti sobre el tablero. */
+  protected readonly celebrating = computed(() => {
+    const game = this.game();
+    return game?.status === 'won' && game.winner === game.human;
   });
 
   protected readonly humanTurn = computed(() => {

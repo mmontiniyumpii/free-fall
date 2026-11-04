@@ -185,4 +185,20 @@ describe('App', () => {
     expect(app.host.querySelector('app-board .stroke')).not.toBeNull();
     expect(app.button('Jugar de nuevo')).not.toBeNull();
   });
+
+  it('el confeti cubre la zona del tablero solo cuando ganás', async () => {
+    const won = await start('won');
+    await won.click('Empezar partida');
+    const confetti = won.host.querySelector('.board-area > app-confetti');
+    expect(confetti).not.toBeNull();
+    expect(won.host.querySelector('.panel app-confetti, .status app-confetti')).toBeNull();
+    TestBed.resetTestingModule();
+
+    for (const scenario of ['bot_won', 'draw'] as const) {
+      const app = await start(scenario);
+      await app.click('Empezar partida');
+      expect(app.host.querySelector('app-confetti')).toBeNull();
+      TestBed.resetTestingModule();
+    }
+  });
 });

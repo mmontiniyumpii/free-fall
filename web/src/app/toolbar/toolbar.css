@@ -61,7 +61,7 @@
 
 .chip--human {
   background: var(--color-accent);
-  box-shadow: inset 0 0 0 2px rgba(8, 30, 34, 0.16);
+  box-shadow: var(--chip-rim);
 }
 
 .chip--bot {
@@ -188,4 +188,21 @@ kbd {
 .pair .primary {
   height: 40px;
   font-size: 14px;
+}
+
+/* Al cambiar de modo, las acciones nuevas entran con un fundido corto. */
+.field,
+.pair,
+.primary,
+.secondary,
+.ghost,
+.hint {
+  animation: enter 180ms var(--ease-standard);
+}
+
+@keyframes enter {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }

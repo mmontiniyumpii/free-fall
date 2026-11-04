@@ -22,6 +22,8 @@ interface StatusView {
   warning: boolean;
   /** De quién es el turno en el indicador; null lo oculta. */
   turn: Side | null;
+  /** Ganó el humano: el título entra con un "pop". */
+  celebrate?: boolean;
 }
 
 /**
@@ -104,6 +106,7 @@ export class Status {
       return {
         eyebrow: `Fin de la partida · ${moves} jugadas`,
         title: humanWon ? 'Ganaste' : 'Ganó el bot',
+        celebrate: humanWon,
         detail: `${humanWon ? 'Conectaste' : 'Conectó'} cuatro${describeLine(state)}.`,
         alert: false,
         warning: false,

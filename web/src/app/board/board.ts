@@ -16,6 +16,9 @@ import { sortWinningCells } from '../game/winning-line';
 
 type Owner = 'human' | 'bot' | null;
 
+/** Cómo terminó la partida, visto desde el humano; decide la animación final. */
+export type Ending = 'won' | 'lost' | 'draw';
+
 interface CellView {
   row: number;
   owner: Owner;
@@ -155,6 +158,14 @@ export class Board {
       length: Math.hypot(dx, dy),
       angleDeg: (Math.atan2(dy, dx) * 180) / Math.PI,
     };
+  });
+
+  /** Solo del GameState: status y winner contra human. */
+  protected readonly ending = computed<Ending | null>(() => {
+    const state = this.state();
+    if (state?.status === 'draw') return 'draw';
+    if (state?.status !== 'won') return null;
+    return state.winner === state.human ? 'won' : 'lost';
   });
 
   protected readonly columns = computed<ColumnView[]>(() => {

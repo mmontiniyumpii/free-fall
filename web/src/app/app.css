@@ -43,6 +43,7 @@
    ocupa 136 px de alto (barra, relleno, etiquetas) y 428 px de ancho (panel,
    relleno); por celda, 8,3 de alto (7 filas + carril + relleno) y 8,4 de ancho. */
 .board-area {
+  position: relative;
   grid-area: board;
   --cell: clamp(36px, min((100dvh - 136px) / 8.3, (100vw - 428px) / 8.4), 80px);
   display: flex;

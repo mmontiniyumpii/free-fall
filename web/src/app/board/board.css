@@ -47,7 +47,7 @@
   height: var(--disc-size);
   border-radius: 50%;
   background: var(--color-accent);
-  box-shadow: inset 0 0 0 3px rgba(8, 30, 34, 0.18);
+  box-shadow: var(--disc-rim);
   animation: fade-in 120ms var(--ease-standard);
 }
 
@@ -174,7 +174,7 @@
 /* Humano: disco lleno en el color de acento. */
 .disc--human {
   background: var(--color-accent);
-  box-shadow: inset 0 0 0 3px rgba(8, 30, 34, 0.18);
+  box-shadow: var(--disc-rim);
 }
 
 /* Caída (diseño): arranca en el carril, acelera hasta el 72 % del tiempo,
@@ -220,10 +220,29 @@
   display: block;
   height: 100%;
   border-radius: 5px;
-  background: #ffffff;
+  background: var(--color-stroke);
   box-shadow: 0 0 0 2px var(--color-board);
   transform-origin: 0 50%;
   animation: stroke-in 380ms var(--ease-standard) 760ms both;
+}
+
+/* Perder: tus fichas pasan a gris y los anillos del bot laten dos veces. */
+.board--lost .disc--human {
+  filter: grayscale(0.85);
+  transition:
+    opacity 320ms var(--ease-standard) 280ms,
+    filter 400ms var(--ease-standard) 280ms;
+}
+
+.board--lost .ring {
+  animation:
+    ring-in 260ms var(--ease-standard) calc(300ms + var(--win-order) * 110ms) both,
+    ring-pulse 420ms var(--ease-standard) 1150ms 2;
+}
+
+/* Empate: una ola recorre las columnas de izquierda a derecha. */
+.board--draw .column {
+  animation: wave 520ms var(--ease-standard) calc(200ms + var(--column) * 70ms) both;
 }
 
 /* Bot: disco azul con el centro hueco; se distingue por forma, no solo por color. */
@@ -305,6 +324,21 @@
 @keyframes stroke-in {
   from {
     transform: scaleX(0);
+  }
+}
+
+@keyframes ring-pulse {
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+@keyframes wave {
+  35% {
+    transform: translateY(-10px);
+  }
+  70% {
+    transform: translateY(3px);
   }
 }
 

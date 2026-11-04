@@ -13,6 +13,9 @@
       (columnFocused)="focusedColumn.set($event)"
       (columnRejected)="rejectedColumn.set($event)"
     />
+    @if (celebrating()) {
+      <app-confetti />
+    }
   </section>
   <app-status
     class="status"

@@ -349,4 +349,38 @@ describe('Board', () => {
       expect(host.querySelector('.disc--dim')).toBeNull();
     });
   });
+
+  describe('animación final', () => {
+    function ending(host: HTMLElement): string | null {
+      const board = host.querySelector('.board') as HTMLElement;
+      return ['won', 'lost', 'draw'].find((kind) => board.classList.contains(`board--${kind}`)) ?? null;
+    }
+
+    it('ganar y perder tienen cada uno su animación', () => {
+      expect(ending(render(fakeState('won')))).toBe('won');
+      expect(ending(render(fakeState('bot_won')))).toBe('lost');
+    });
+
+    it('empate: la ola recorre las columnas en orden', () => {
+      const host = render(fakeState('draw'));
+
+      expect(ending(host)).toBe('draw');
+      const order = Array.from(host.querySelectorAll<HTMLElement>('.column'), (c) =>
+        c.style.getPropertyValue('--column'),
+      );
+      expect(order).toEqual(['0', '1', '2', '3', '4', '5', '6', '7']);
+    });
+
+    it('durante la partida no hay animación final', () => {
+      const host = render(fakeState('fixture'));
+
+      expect(ending(host)).toBeNull();
+    });
+
+    it('si gana el humano siendo el jugador 2, también es victoria', () => {
+      const state = { ...fakeState('bot_won'), human: 2 as const, bot: 1 as const };
+
+      expect(ending(render(state))).toBe('won');
+    });
+  });
 });

@@ -1,0 +1,59 @@
+/* Cubre todo el contenedor; cqh = alto del contenedor, para que caiga hasta abajo. */
+:host {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  overflow: hidden;
+  pointer-events: none;
+  container-type: size;
+}
+
+/* Empieza cuando termina el trazo de la línea ganadora (760 + 380 ms). */
+.piece {
+  position: absolute;
+  top: -24px;
+  border-radius: 2px;
+  opacity: 0;
+  animation: fall var(--duration) ease-in-out calc(1100ms + var(--delay)) both;
+}
+
+.piece--strip {
+  width: 6px;
+  height: 14px;
+}
+
+.piece--square {
+  width: 9px;
+  height: 9px;
+}
+
+.piece--wide {
+  width: 13px;
+  height: 6px;
+}
+
+@keyframes fall {
+  0% {
+    opacity: 0;
+    transform: translate(0, 0) rotate(0deg) rotateX(0deg);
+  }
+  5% {
+    opacity: 1;
+  }
+  25% {
+    transform: translate(var(--sway), 25cqh) rotate(calc(var(--spin) * 0.25)) rotateX(180deg);
+  }
+  50% {
+    transform: translate(calc(var(--sway) * -0.6), 50cqh) rotate(calc(var(--spin) * 0.5)) rotateX(360deg);
+  }
+  75% {
+    transform: translate(var(--sway), 75cqh) rotate(calc(var(--spin) * 0.75)) rotateX(540deg);
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate(0, calc(100cqh + 40px)) rotate(var(--spin)) rotateX(720deg);
+  }
+}

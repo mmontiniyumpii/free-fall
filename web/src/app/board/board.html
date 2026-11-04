@@ -1,4 +1,11 @@
-<div class="board" [class.board--offline]="offline()" (mouseleave)="focus(null)">
+<div
+  class="board"
+  [class.board--offline]="offline()"
+  [class.board--won]="ending() === 'won'"
+  [class.board--lost]="ending() === 'lost'"
+  [class.board--draw]="ending() === 'draw'"
+  (mouseleave)="focus(null)"
+>
   <!-- Carril: previsualización de la ficha y aviso de columna llena. También es zona de clic. -->
   <div class="lane" aria-hidden="true">
     @for (column of columns(); track column.index) {
@@ -39,6 +46,7 @@
         type="button"
         class="column"
         [attr.data-column]="column.index"
+        [style.--column]="column.index"
         [class.column--focused]="column.focused"
         [class.column--blocked]="interactive() && !column.legal"
         [class.column--invalid]="column.invalid"

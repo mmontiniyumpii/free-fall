@@ -56,6 +56,13 @@
   --color-accent-hover: #db4a4a;
   --color-on-accent: #ffffff;
 
+  /* Fichas y efectos */
+  --disc-rim: inset 0 0 0 3px rgba(8, 30, 34, 0.18);
+  --chip-rim: inset 0 0 0 2px rgba(8, 30, 34, 0.16);
+  --color-stroke: #ffffff;
+  --color-confetti-light: #ffffff;
+  --color-confetti-warm: #f5a524;
+
   --radius-control: 8px;
   --radius-option: 10px;
   --radius-board: 16px;

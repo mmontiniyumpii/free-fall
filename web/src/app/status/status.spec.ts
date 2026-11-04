@@ -115,4 +115,10 @@ describe('Status', () => {
       'Conectaste cuatro en horizontal, de la columna 2 a la 5.',
     );
   });
+
+  it('el título celebra solo cuando gana el humano', () => {
+    expect(render(fakeState('won')).host.querySelector('.title--celebrate')).not.toBeNull();
+    expect(render(fakeState('bot_won')).host.querySelector('.title--celebrate')).toBeNull();
+    expect(render(fakeState('draw')).host.querySelector('.title--celebrate')).toBeNull();
+  });
 });
