@@ -273,4 +273,16 @@ describe('App', () => {
       expect(eyebrow()).toBe('Jugada 1 · Fácil');
     });
   });
+
+  it('desde el inicio se abre la reproducción y se vuelve a jugar contra el bot', async () => {
+    const app = await start();
+
+    await app.click('Ver una partida del torneo');
+    expect(app.host.querySelector('app-replay')).not.toBeNull();
+    expect(app.host.querySelector('app-toolbar')).toBeNull();
+
+    await app.click('Volver a jugar contra el bot');
+    expect(app.host.querySelector('app-replay')).toBeNull();
+    expect(app.button('Empezar partida')).not.toBeNull();
+  });
 });

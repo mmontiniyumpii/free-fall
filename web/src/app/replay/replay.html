@@ -1,0 +1,87 @@
+<div class="eyebrow">Partida del torneo</div>
+<h1 class="title">Ver una partida</h1>
+
+<form class="search" (submit)="$event.preventDefault(); load()">
+  <label class="field-label" for="game-ref">Código o link de la partida</label>
+  <div class="search-row">
+    <input
+      id="game-ref"
+      class="input"
+      type="text"
+      autocomplete="off"
+      spellcheck="false"
+      placeholder="g_7f3a"
+      [value]="query()"
+      (input)="onQuery($event)"
+    />
+    <button type="submit" class="secondary" [disabled]="loading()">{{ loading() ? 'Cargando…' : 'Cargar' }}</button>
+  </div>
+  @if (error(); as message) {
+    <p class="error" role="alert">{{ message }}</p>
+  }
+</form>
+
+@if (game(); as record) {
+  <section class="record" aria-label="Partida cargada">
+    <div class="meta">{{ kind() }} · <span class="meta-id">{{ record.game_id }}</span></div>
+    <ul class="teams">
+      <li><span class="chip chip--one"></span>{{ teams()[0] }}</li>
+      <li><span class="chip chip--two"></span>{{ teams()[1] }}</li>
+    </ul>
+
+    <div class="step" aria-live="polite">
+      <span class="step-title">{{ stepTitle() }}</span>
+      @if (atEnd()) {
+        <span class="step-result">{{ result() }}</span>
+      }
+    </div>
+
+    <div class="controls">
+      <button type="button" class="icon-button" aria-label="Ir al inicio" [disabled]="step() === 0" (click)="goTo(0)">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 18 11 12l6-6" /><path d="M7 6v12" /></svg>
+      </button>
+      <button type="button" class="icon-button" aria-label="Jugada anterior" [disabled]="step() === 0" (click)="goTo(step() - 1)">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+      </button>
+      <button type="button" class="icon-button icon-button--primary" [attr.aria-label]="playing() ? 'Pausar' : 'Reproducir'" (click)="togglePlay()">
+        @if (playing()) {
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></svg>
+        } @else {
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16l13-8z" /></svg>
+        }
+      </button>
+      <button type="button" class="icon-button" aria-label="Jugada siguiente" [disabled]="atEnd()" (click)="goTo(step() + 1)">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6" /></svg>
+      </button>
+      <button type="button" class="icon-button" aria-label="Ir al final" [disabled]="atEnd()" (click)="goTo(total())">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 18 6-6-6-6" /><path d="M17 6v12" /></svg>
+      </button>
+    </div>
+    <input
+      class="slider"
+      type="range"
+      min="0"
+      [max]="total()"
+      [value]="step()"
+      aria-label="Jugada"
+      (input)="goTo(+$any($event.target).value)"
+    />
+    <p class="hint">También podés usar las flechas <kbd>←</kbd> <kbd>→</kbd>.</p>
+
+    <ol class="moves" aria-label="Jugadas de la partida">
+      @for (row of rows(); track row.step) {
+        <li>
+          <button type="button" class="move" [class.move--current]="row.step === step()" (click)="goTo(row.step)">
+            <span class="number">{{ row.turn.toString().padStart(2, '0') }}</span>
+            <span class="chip" [class.chip--one]="row.by === 1" [class.chip--two]="row.by === 2"></span>
+            <span class="team">{{ row.team }}</span>
+            <span class="column">Col. {{ row.column + 1 }}</span>
+            <span class="ms">{{ row.ms === null ? '' : row.ms + ' ms' }}</span>
+          </button>
+        </li>
+      }
+    </ol>
+  </section>
+}
+
+<button type="button" class="ghost" (click)="backToMenu()">Volver a jugar contra el bot</button>

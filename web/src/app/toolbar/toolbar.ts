@@ -36,6 +36,8 @@ export class Toolbar {
   /** Crea una partida con la configuración elegida (inicio y reinicio). */
   readonly newGame = output<void>();
   readonly backToSetup = output<void>();
+  /** Abre la reproducción de una partida del torneo. */
+  readonly openReplay = output<void>();
   /** Reintenta ya el pedido que falló por falta de conexión. */
   readonly retry = output<void>();
 

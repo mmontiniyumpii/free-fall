@@ -1,0 +1,366 @@
+{
+  "game_id": "g_f_01",
+  "match_id": null,
+  "kind": "friendly",
+  "status": "finished",
+  "players": {
+    "1": {
+      "team_id": "eq1",
+      "name": "Equipo 1"
+    },
+    "2": {
+      "team_id": "eq2",
+      "name": "Equipo 2"
+    }
+  },
+  "moves": [
+    {
+      "turn": 1,
+      "by": 1,
+      "column": 3,
+      "ms": 380
+    },
+    {
+      "turn": 2,
+      "by": 2,
+      "column": 3,
+      "ms": 537
+    },
+    {
+      "turn": 3,
+      "by": 1,
+      "column": 3,
+      "ms": 305
+    },
+    {
+      "turn": 4,
+      "by": 2,
+      "column": 5,
+      "ms": 550
+    },
+    {
+      "turn": 5,
+      "by": 1,
+      "column": 5,
+      "ms": 404
+    },
+    {
+      "turn": 6,
+      "by": 2,
+      "column": 3,
+      "ms": 345
+    },
+    {
+      "turn": 7,
+      "by": 1,
+      "column": 2,
+      "ms": 550
+    },
+    {
+      "turn": 8,
+      "by": 2,
+      "column": 1,
+      "ms": 550
+    },
+    {
+      "turn": 9,
+      "by": 1,
+      "column": 3,
+      "ms": 370
+    },
+    {
+      "turn": 10,
+      "by": 2,
+      "column": 1,
+      "ms": 550
+    },
+    {
+      "turn": 11,
+      "by": 1,
+      "column": 1,
+      "ms": 367
+    },
+    {
+      "turn": 12,
+      "by": 2,
+      "column": 1,
+      "ms": 465
+    },
+    {
+      "turn": 13,
+      "by": 1,
+      "column": 1,
+      "ms": 551
+    },
+    {
+      "turn": 14,
+      "by": 2,
+      "column": 5,
+      "ms": 319
+    },
+    {
+      "turn": 15,
+      "by": 1,
+      "column": 5,
+      "ms": 550
+    },
+    {
+      "turn": 16,
+      "by": 2,
+      "column": 7,
+      "ms": 336
+    },
+    {
+      "turn": 17,
+      "by": 1,
+      "column": 6,
+      "ms": 514
+    },
+    {
+      "turn": 18,
+      "by": 2,
+      "column": 5,
+      "ms": 550
+    },
+    {
+      "turn": 19,
+      "by": 1,
+      "column": 6,
+      "ms": 550
+    },
+    {
+      "turn": 20,
+      "by": 2,
+      "column": 6,
+      "ms": 324
+    },
+    {
+      "turn": 21,
+      "by": 1,
+      "column": 6,
+      "ms": 468
+    },
+    {
+      "turn": 22,
+      "by": 2,
+      "column": 7,
+      "ms": 437
+    },
+    {
+      "turn": 23,
+      "by": 1,
+      "column": 7,
+      "ms": 550
+    },
+    {
+      "turn": 24,
+      "by": 2,
+      "column": 6,
+      "ms": 355
+    },
+    {
+      "turn": 25,
+      "by": 1,
+      "column": 7,
+      "ms": 413
+    },
+    {
+      "turn": 26,
+      "by": 2,
+      "column": 7,
+      "ms": 473
+    },
+    {
+      "turn": 27,
+      "by": 1,
+      "column": 3,
+      "ms": 550
+    },
+    {
+      "turn": 28,
+      "by": 2,
+      "column": 5,
+      "ms": 531
+    },
+    {
+      "turn": 29,
+      "by": 1,
+      "column": 5,
+      "ms": 550
+    },
+    {
+      "turn": 30,
+      "by": 2,
+      "column": 6,
+      "ms": 456
+    },
+    {
+      "turn": 31,
+      "by": 1,
+      "column": 6,
+      "ms": 171
+    },
+    {
+      "turn": 32,
+      "by": 2,
+      "column": 3,
+      "ms": 32
+    },
+    {
+      "turn": 33,
+      "by": 1,
+      "column": 1,
+      "ms": 8
+    },
+    {
+      "turn": 34,
+      "by": 2,
+      "column": 1,
+      "ms": 3
+    },
+    {
+      "turn": 35,
+      "by": 1,
+      "column": 7,
+      "ms": 1
+    },
+    {
+      "turn": 36,
+      "by": 2,
+      "column": 4,
+      "ms": 0
+    },
+    {
+      "turn": 37,
+      "by": 1,
+      "column": 4,
+      "ms": 0
+    },
+    {
+      "turn": 38,
+      "by": 2,
+      "column": 7,
+      "ms": 0
+    },
+    {
+      "turn": 39,
+      "by": 1,
+      "column": 0,
+      "ms": 0
+    },
+    {
+      "turn": 40,
+      "by": 2,
+      "column": 0,
+      "ms": 0
+    },
+    {
+      "turn": 41,
+      "by": 1,
+      "column": 2,
+      "ms": 0
+    },
+    {
+      "turn": 42,
+      "by": 2,
+      "column": 2,
+      "ms": 0
+    }
+  ],
+  "board": [
+    [
+      1,
+      2,
+      1,
+      1,
+      2,
+      2,
+      1,
+      2
+    ],
+    [
+      2,
+      2,
+      1,
+      2,
+      1,
+      1,
+      1,
+      2
+    ],
+    [
+      0,
+      1,
+      2,
+      1,
+      0,
+      2,
+      2,
+      1
+    ],
+    [
+      0,
+      2,
+      0,
+      2,
+      0,
+      1,
+      1,
+      1
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      0,
+      2,
+      2,
+      2
+    ],
+    [
+      0,
+      1,
+      0,
+      1,
+      0,
+      2,
+      2,
+      1
+    ],
+    [
+      0,
+      2,
+      0,
+      2,
+      0,
+      1,
+      1,
+      2
+    ]
+  ],
+  "result": {
+    "winner": 2,
+    "reason": "connect4",
+    "winning_cells": [
+      [
+        0,
+        4
+      ],
+      [
+        1,
+        3
+      ],
+      [
+        2,
+        2
+      ],
+      [
+        3,
+        1
+      ]
+    ]
+  },
+  "started_at": "2026-11-04T23:01:54.687Z",
+  "finished_at": "2026-11-04T23:02:08.769Z"
+}

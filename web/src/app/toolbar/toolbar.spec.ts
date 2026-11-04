@@ -20,6 +20,7 @@ function render(
   fixture.componentInstance.newGame.subscribe(() => events.push('newGame'));
   fixture.componentInstance.backToSetup.subscribe(() => events.push('backToSetup'));
   fixture.componentInstance.retry.subscribe(() => events.push('retry'));
+  fixture.componentInstance.openReplay.subscribe(() => events.push('openReplay'));
   fixture.detectChanges();
   const host = fixture.nativeElement as HTMLElement;
   const button = (text: string) =>
@@ -103,5 +104,13 @@ describe('Toolbar', () => {
     const { button } = render('playing');
 
     expect(button('Fácil')).toBeNull();
+  });
+
+  it('en el inicio ofrece ver una partida del torneo', () => {
+    const { button, events } = render('setup');
+
+    button('Ver una partida del torneo')?.click();
+
+    expect(events).toEqual(['openReplay']);
   });
 });

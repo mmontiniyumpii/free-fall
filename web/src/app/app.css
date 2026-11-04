@@ -109,6 +109,13 @@
   stroke-linejoin: round;
 }
 
+/* Reproducción de una partida: ocupa la columna derecha entera. */
+.replay-panel {
+  grid-column: 2;
+  grid-row: 1 / 3;
+  min-height: 0;
+}
+
 /* Teléfono (diseño mobile, < 760 px): una columna, estado arriba, tablero y
    panel abajo. La página se desplaza en vertical, nunca en horizontal. La celda
    sale del ancho: 8,4 celdas (8 + relleno) en el ancho menos 16 px por lado. */
@@ -142,5 +149,10 @@
   .status,
   .panel {
     border-left: none;
+  }
+
+  .replay-panel {
+    grid-column: 1;
+    grid-row: 3;
   }
 }

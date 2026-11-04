@@ -13,6 +13,7 @@ import { Board } from './board/board';
 import { Confetti } from './confetti/confetti';
 import { TOUCH_INPUT } from './device';
 import { History } from './history/history';
+import { Replay } from './replay/replay';
 import { Rules } from './rules/rules';
 import { classifyError } from './game/api-error';
 import { GameApi } from './game/game-api';
@@ -35,7 +36,7 @@ type Unanswered =
 
 @Component({
   selector: 'app-root',
-  imports: [Board, Confetti, History, Rules, Status, Toolbar],
+  imports: [Board, Confetti, History, Replay, Rules, Status, Toolbar],
   templateUrl: './app.html',
   styleUrl: './app.css',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -47,8 +48,15 @@ export class App {
 
   /** Único estado de la partida: lo que devolvió la API, sin derivar reglas. `null` en el inicio. */
   protected readonly game = signal<GameState | null>(null);
-  /** Pantalla de inicio o partida (incluye el instante en que se está creando). */
-  protected readonly phase = signal<'setup' | 'game'>('setup');
+  /** Inicio, partida contra el bot (incluye el instante en que se crea) o reproducción. */
+  protected readonly phase = signal<'setup' | 'game' | 'replay'>('setup');
+  /** Tablero de la partida del torneo que se está reproduciendo. */
+  protected readonly replayFrame = signal<GameState | null>(null);
+
+  /** Lo que dibuja el tablero: la partida propia o el paso de la reproducción. */
+  protected readonly boardState = computed(() =>
+    this.phase() === 'replay' ? this.replayFrame() : this.game(),
+  );
   protected readonly first = signal<FirstPlayer>('human');
   protected readonly difficulty = signal<Difficulty>(DEFAULT_DIFFICULTY);
   /** Hay un pedido en curso: el tablero queda bloqueado hasta la respuesta. */
@@ -75,7 +83,12 @@ export class App {
   );
 
   protected readonly boardLocked = computed(
-    () => this.busy() || this.offline() || this.notice() !== null || this.rulesOpen(),
+    () =>
+      this.busy() ||
+      this.offline() ||
+      this.notice() !== null ||
+      this.rulesOpen() ||
+      this.phase() === 'replay',
   );
 
   protected readonly toolbarMode = computed<ToolbarMode>(() => {
@@ -89,7 +102,7 @@ export class App {
   /** Ganó el humano (según status, winner y human): lluvia de confeti sobre el tablero. */
   protected readonly celebrating = computed(() => {
     const game = this.game();
-    return game?.status === 'won' && game.winner === game.human;
+    return this.phase() === 'game' && game?.status === 'won' && game.winner === game.human;
   });
 
   protected readonly humanTurn = computed(() => {
@@ -112,6 +125,18 @@ export class App {
     this.game.set(null);
     this.unanswered = { kind: 'create' };
     this.send(this.api.create(this.first(), this.difficulty()));
+  }
+
+  protected openReplay(): void {
+    if (this.busy()) return;
+    this.clearInterruption();
+    this.game.set(null);
+    this.phase.set('replay');
+  }
+
+  protected closeReplay(): void {
+    this.replayFrame.set(null);
+    this.phase.set('setup');
   }
 
   protected backToSetup(): void {

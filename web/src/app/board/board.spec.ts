@@ -449,4 +449,25 @@ describe('Board', () => {
       expect(selected).toEqual([5]);
     });
   });
+
+  describe('reproducción', () => {
+    it('sin efectos de final no se marca victoria ni derrota, pero sí la línea', () => {
+      const { fixture, host } = setup(fakeState('bot_won'));
+      fixture.componentRef.setInput('endingEffects', false);
+      fixture.detectChanges();
+
+      expect(host.querySelector('.board--lost')).toBeNull();
+      expect(host.querySelectorAll('.ring').length).toBe(4);
+    });
+
+    it('un salto de muchas jugadas se muestra sin animar las fichas', () => {
+      const { fixture, host } = setup(fakeState('playing', 'human'));
+
+      fixture.componentRef.setInput('state', { ...fakeState('fixture'), id: 'l_fake' });
+      fixture.detectChanges();
+
+      expect(host.querySelectorAll('.disc').length).toBe(6);
+      expect(host.querySelector('.disc--drop')).toBeNull();
+    });
+  });
 });

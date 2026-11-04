@@ -15,7 +15,8 @@
 <main class="layout">
   <section class="board-area">
     <app-board
-      [state]="game()"
+      [state]="boardState()"
+      [endingEffects]="phase() !== 'replay'"
       [disabled]="boardLocked()"
       [pendingColumn]="pendingColumn()"
       [offline]="offline()"
@@ -28,31 +29,36 @@
       <app-confetti />
     }
   </section>
-  <app-status
-    class="status"
-    [state]="game()"
-    [thinking]="thinking()"
-    [focusedColumn]="focusedColumn()"
-    [rejectedColumn]="rejectedColumn()"
-    [retryIn]="retryIn()"
-    [notice]="notice()"
-    [touch]="touch"
-  />
-  <section class="panel">
-    <app-toolbar
-      [mode]="toolbarMode()"
-      [first]="first()"
-      [difficulty]="difficulty()"
-      [busy]="busy()"
-      [showKeys]="humanTurn() && !touch"
-      (firstChange)="first.set($event)"
-      (difficultyChange)="difficulty.set($event)"
-      (newGame)="newGame()"
-      (backToSetup)="backToSetup()"
-      (retry)="retry()"
+  @if (phase() === 'replay') {
+    <app-replay class="replay-panel" (frameChange)="replayFrame.set($event)" (exit)="closeReplay()" />
+  } @else {
+    <app-status
+      class="status"
+      [state]="game()"
+      [thinking]="thinking()"
+      [focusedColumn]="focusedColumn()"
+      [rejectedColumn]="rejectedColumn()"
+      [retryIn]="retryIn()"
+      [notice]="notice()"
+      [touch]="touch"
     />
-    @if (phase() === 'game' && game(); as state) {
-      <app-history [state]="state" />
-    }
-  </section>
+    <section class="panel">
+      <app-toolbar
+        [mode]="toolbarMode()"
+        [first]="first()"
+        [difficulty]="difficulty()"
+        [busy]="busy()"
+        [showKeys]="humanTurn() && !touch"
+        (firstChange)="first.set($event)"
+        (difficultyChange)="difficulty.set($event)"
+        (newGame)="newGame()"
+        (backToSetup)="backToSetup()"
+        (retry)="retry()"
+        (openReplay)="openReplay()"
+      />
+      @if (phase() === 'game' && game(); as state) {
+        <app-history [state]="state" />
+      }
+    </section>
+  }
 </main>

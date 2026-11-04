@@ -38,6 +38,7 @@
       <p class="field-detail">{{ difficultyDetail() }}</p>
     </fieldset>
     <button type="button" class="primary" [disabled]="busy()" (click)="newGame.emit()">Empezar partida</button>
+    <button type="button" class="ghost" [disabled]="busy()" (click)="openReplay.emit()">Ver una partida del torneo</button>
   }
   @case ('playing') {
     <button type="button" class="secondary" [disabled]="busy()" (click)="newGame.emit()">

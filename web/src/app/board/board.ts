@@ -96,6 +96,8 @@ export class Board {
   readonly offline = input(false);
   /** Toque en dos pasos (diseño mobile): el primer toque previsualiza, el segundo suelta. */
   readonly touch = input(false);
+  /** Animaciones de victoria, derrota y empate; se apagan al reproducir una partida ajena. */
+  readonly endingEffects = input(true);
 
   /** Solo emite columnas incluidas en `legal_moves`. */
   readonly columnSelected = output<number>();
@@ -165,6 +167,7 @@ export class Board {
   /** Solo del GameState: status y winner contra human. */
   protected readonly ending = computed<Ending | null>(() => {
     const state = this.state();
+    if (!this.endingEffects()) return null;
     if (state?.status === 'draw') return 'draw';
     if (state?.status !== 'won') return null;
     return state.winner === state.human ? 'won' : 'lost';
@@ -290,6 +293,9 @@ function freshCells(current: Snapshot, previous: Snapshot | null): CellKey[] {
       cells.push({ key: `${row}:${column}`, human: cell === state.human });
     }),
   );
+  // Una jugada suma a lo sumo dos fichas (la tuya y la respuesta). Más es un
+  // salto (por ejemplo, al reproducir una partida): se muestra sin animar.
+  if (cells.length > 2) return [];
   // El humano siempre juega antes que la respuesta del bot.
   return cells.sort((a, b) => Number(b.human) - Number(a.human)).map((c) => c.key);
 }
