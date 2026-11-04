@@ -1,10 +1,9 @@
-// Command bot arranca el bot: el loop del árbitro (si ARBITRO_URL está definida) y GET /health.
-// La API local para la app web y el warm-up del motor llegan en pasos siguientes.
+// Command bot arranca el bot: la API local para la app web (siempre) y el loop del árbitro (si ARBITRO_URL está definida).
+// El warm-up del motor llega en el paso 8.
 package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"log/slog"
 	"math/rand/v2"
@@ -15,41 +14,21 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/mmontiniyumpii/free-fall/bot/internal/api"
 	"github.com/mmontiniyumpii/free-fall/bot/internal/arbiter"
 	"github.com/mmontiniyumpii/free-fall/bot/internal/config"
+	"github.com/mmontiniyumpii/free-fall/bot/internal/game"
 )
 
-// healthResponse es el cuerpo de GET /health definido en docs/api-local.md.
-type healthResponse struct {
-	OK               bool `json:"ok"`
-	ArbiterConnected bool `json:"arbiter_connected"`
-	ThinkMS          int  `json:"think_ms"`
-}
+// Electores provisorios: una columna legal al azar. En el paso 6 los dos pasan a usar engine.ChooseMove,
+// el loop del árbitro siempre con MaxDepth = 0. rand.IntN global es seguro entre goroutines.
 
-// newMux arma las rutas. Se separa de main para poder probarlo con httptest.
-// connected lo actualiza el loop del árbitro; atomic.Bool se puede leer y escribir desde varias goroutines sin mutex.
-func newMux(cfg config.Config, connected *atomic.Bool) *http.ServeMux {
-	mux := http.NewServeMux()
-	// "GET /health": desde Go 1.22 el patrón incluye el método; otro método devuelve 405 solo.
-	mux.HandleFunc("GET /health", healthHandler(cfg, connected))
-	return mux
-}
-
-// healthHandler devuelve un handler que "recuerda" cfg y connected (una closure: la función captura las variables).
-func healthHandler(cfg config.Config, connected *atomic.Bool) http.HandlerFunc {
-	return func(w http.ResponseWriter, _ *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		body := healthResponse{OK: true, ArbiterConnected: connected.Load(), ThinkMS: int(cfg.Think / time.Millisecond)}
-		if err := json.NewEncoder(w).Encode(body); err != nil {
-			slog.Error("write health response", "err", err)
-		}
-	}
-}
-
-// randomChoice es el elector provisorio del paso 4: una columna legal al azar.
-// Se reemplaza por engine.ChooseMove en el paso 6. rand.IntN global es seguro entre goroutines.
 func randomChoice(t arbiter.Turn) arbiter.Choice {
 	return arbiter.Choice{Column: t.LegalMoves[rand.IntN(len(t.LegalMoves))]}
+}
+
+func randomBotMove(_ game.Board, _ game.Player, legal []game.Column, _ int) api.BotMove {
+	return api.BotMove{Column: legal[rand.IntN(len(legal))]}
 }
 
 func main() {
@@ -63,11 +42,13 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// connected lo escribe el loop del árbitro y lo lee GET /health.
+	// atomic.Bool se puede usar desde varias goroutines sin mutex.
 	var connected atomic.Bool
 	if cfg.ArbiterURL != "" {
 		client := arbiter.NewClient(cfg.ArbiterURL, cfg.TeamToken)
 		opts := arbiter.LoopOptions{Wait: cfg.PollWait, Connected: &connected}
-		// go: el loop corre en su propia goroutine, en paralelo con el servidor HTTP.
+		// go: el loop corre en su propia goroutine, en paralelo con la API local.
 		go arbiter.RunLoop(ctx, client, randomChoice, slog.Default(), opts)
 	} else {
 		slog.Warn("ARBITRO_URL vacío: solo API local, sin loop del árbitro")
@@ -75,7 +56,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    ":" + cfg.Port,
-		Handler: newMux(cfg, &connected),
+		Handler: api.NewServer(randomBotMove, cfg.Think, &connected).Handler(),
 		// Corta clientes que no terminan de mandar los headers (evita sockets colgados).
 		ReadHeaderTimeout: 5 * time.Second,
 	}
