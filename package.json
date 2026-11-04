@@ -1,0 +1,9 @@
+{
+  "name": "free-fall",
+  "private": true,
+  "description": "Bot de Cuatro en línea 8x7 (Go) y aplicación web (Angular).",
+  "scripts": {
+    "test": "cd bot && go test ./... -race -cover -coverprofile=coverage.out && go run ./cmd/covercheck coverage.out",
+    "dev:web": "npm --prefix web start"
+  }
+}

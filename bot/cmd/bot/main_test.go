@@ -6,12 +6,15 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"testing"
+	"time"
+
+	"github.com/mmontiniyumpii/free-fall/bot/internal/config"
 )
 
-// TestHealth levanta el mux en un servidor local real y le hace GET /health,
-// como pide el spike del paso 0. El cuerpo debe coincidir exactamente con docs/api-local.md.
+// TestHealth levanta el mux en un servidor local real y le hace GET /health.
+// El cuerpo debe coincidir exactamente con docs/api-local.md.
 func TestHealth(t *testing.T) {
-	srv := httptest.NewServer(newMux())
+	srv := httptest.NewServer(newMux(config.Config{Think: 1500 * time.Millisecond}))
 	// defer: Close se ejecuta al salir de la función, pase lo que pase.
 	defer srv.Close()
 
@@ -40,7 +43,7 @@ func TestHealth(t *testing.T) {
 }
 
 func TestHealthRejectsOtherMethods(t *testing.T) {
-	srv := httptest.NewServer(newMux())
+	srv := httptest.NewServer(newMux(config.Config{}))
 	defer srv.Close()
 
 	resp, err := http.Post(srv.URL+"/health", "application/json", nil)
