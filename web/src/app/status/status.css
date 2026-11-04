@@ -196,3 +196,17 @@
     transform: scale(1);
   }
 }
+
+/* last_bot: dato técnico, discreto, en mono. */
+.bot-info {
+  margin: 4px 0 0;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--color-text-3);
+}
+
+.bot-info-label {
+  text-transform: uppercase;
+  letter-spacing: 0.075em;
+}

@@ -1,12 +1,22 @@
 import { TestBed } from '@angular/core/testing';
 import { firstValueFrom } from 'rxjs';
 
-import { FAKE_SCENARIO, FakeGameApiService } from './fake-game-api.service';
+import {
+  FAKE_SCENARIO,
+  FAKE_THINK_MS,
+  FakeGameApiService,
+  fakeRequested,
+} from './fake-game-api.service';
 import { FakeScenario } from './fake-scenarios';
 
+/** El fake con una demora fija de 600 ms, independiente del valor por defecto. */
 function fakeApi(scenario: FakeScenario): FakeGameApiService {
   TestBed.configureTestingModule({
-    providers: [FakeGameApiService, { provide: FAKE_SCENARIO, useValue: scenario }],
+    providers: [
+      FakeGameApiService,
+      { provide: FAKE_SCENARIO, useValue: scenario },
+      { provide: FAKE_THINK_MS, useValue: 600 },
+    ],
   });
   return TestBed.inject(FakeGameApiService);
 }
@@ -135,5 +145,13 @@ describe('FakeGameApiService', () => {
       status: 404,
       error: { error: 'unknown_game' },
     });
+  });
+});
+
+describe('fakeRequested', () => {
+  it('la app usa la API real salvo que la URL pida un escenario', () => {
+    expect(fakeRequested('')).toBe(false);
+    expect(fakeRequested('?foo=1')).toBe(false);
+    expect(fakeRequested('?scenario=won')).toBe(true);
   });
 });

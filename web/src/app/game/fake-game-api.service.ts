@@ -16,8 +16,16 @@ export const FAKE_SCENARIO = new InjectionToken<FakeScenario>('FAKE_SCENARIO', {
     parseScenario(new URLSearchParams(inject(DOCUMENT).location.search).get('scenario')),
 });
 
-/** Cuánto tarda el bot falso en responder; por debajo del think_ms real. Los tests lo bajan a 0. */
-export const FAKE_THINK_MS = new InjectionToken<number>('FAKE_THINK_MS', { factory: () => 600 });
+/** Cuánto tarda el bot falso en responder: lo mismo que el motor real (think_ms). Los tests lo bajan a 0. */
+export const FAKE_THINK_MS = new InjectionToken<number>('FAKE_THINK_MS', { factory: () => 1500 });
+
+/**
+ * La app usa la API real del bot salvo que la URL pida un escenario del fake
+ * (`?scenario=...`), para mostrar estados que no se pueden provocar a mano.
+ */
+export function fakeRequested(search: string): boolean {
+  return new URLSearchParams(search).has('scenario');
+}
 
 /** El bot falso no decide: juega la primera columna disponible en este orden fijo. */
 const FAKE_BOT_ORDER = [3, 4, 2, 5, 1, 6, 0, 7];

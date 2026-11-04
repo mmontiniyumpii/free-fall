@@ -47,6 +47,18 @@ export class Status {
   readonly retryIn = input<number | null>(null);
   readonly notice = input<StatusNotice | null>(null);
 
+  /** Datos de la última jugada del bot (last_bot), como información. */
+  protected readonly botInfo = computed<string | null>(() => {
+    const last = this.state()?.last_bot;
+    if (!last || this.thinking() || this.retryIn() !== null || this.notice()) return null;
+    return [
+      `columna ${last.column + 1}`,
+      `profundidad ${last.depth}`,
+      `${groupDigits(last.nodes)} nodos`,
+      `${groupDigits(last.elapsed_ms)} ms`,
+    ].join(' · ');
+  });
+
   protected readonly view = computed<StatusView>(() => {
     const state = this.state();
     const moves = state?.history.length ?? 0;
@@ -160,4 +172,9 @@ function describeLine(state: GameState): string {
       ? `en la columna ${firstColumn}`
       : `de la columna ${firstColumn} a la ${lastColumn}`;
   return ` en ${direction}, ${where}`;
+}
+
+/** 412380 → "412 380", con espacio fino como en el plan. */
+function groupDigits(value: number): string {
+  return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
 }

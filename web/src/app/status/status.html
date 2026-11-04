@@ -23,3 +23,7 @@
     </div>
   }
 }
+
+@if (botInfo(); as info) {
+  <p class="bot-info"><span class="bot-info-label">Última del bot</span> {{ info }}</p>
+}

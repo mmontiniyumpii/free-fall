@@ -221,18 +221,23 @@ describe('Board', () => {
       expect(drops(host)).toEqual(['human@4:3']);
     });
 
-    it('cuando llega la respuesta cae solo la ficha del bot: la del humano ya cayó', () => {
+    it('si la respuesta llega mientras tu ficha cae, la caída sigue sin reiniciarse y después cae la del bot', () => {
       const before = fakeState('fixture');
       const { fixture, host } = setup(before);
       fixture.componentRef.setInput('pendingColumn', 3);
       fixture.detectChanges();
+      const falling = host.querySelector('.disc--human.disc--drop');
 
       const afterHuman = withMove(before, 4, 3, 1);
       fixture.componentRef.setInput('state', withMove(afterHuman, 2, 4, 2));
       fixture.componentRef.setInput('pendingColumn', null);
       fixture.detectChanges();
 
-      expect(drops(host)).toEqual(['bot@2:4']);
+      // Mismo elemento y sigue con la caída: la animación en curso no se corta.
+      expect(host.querySelector('.disc--human.disc--drop')).toBe(falling);
+      expect(drops(host).sort()).toEqual(['bot@2:4', 'human@4:3']);
+      const botDelay = host.querySelector<HTMLElement>('.disc--bot.disc--drop')?.style.getPropertyValue('--drop-delay');
+      expect(botDelay).not.toBe('0ms');
     });
 
     it('si llegan dos fichas nuevas de golpe, cae primero la del humano', () => {

@@ -251,8 +251,8 @@ export class Board {
 
 /**
  * Celdas ocupadas en el estado actual que estaban vacías en el que se mostraba
- * antes. No interpreta reglas: solo compara tableros. Excluye la jugada
- * pendiente que ya se vio caer. Una partida nueva solo anima si trae a lo sumo
+ * antes. No interpreta reglas: solo compara tableros. Incluye la jugada
+ * pendiente aunque ya haya empezado a caer. Una partida nueva solo anima si trae a lo sumo
  * una ficha (la apertura del bot); cargar una partida empezada no anima nada.
  */
 function freshCells(current: Snapshot, previous: Snapshot | null): CellKey[] {
@@ -263,13 +263,13 @@ function freshCells(current: Snapshot, previous: Snapshot | null): CellKey[] {
   const baseline = sameGame ? before.board : state.history.length <= 1 ? EMPTY_BOARD : null;
   if (!baseline) return [];
 
-  const alreadyShown =
-    sameGame && previous?.pending != null ? landingRow(before.board, previous.pending) : null;
+  // La ficha pendiente que ya venía cayendo se queda en la lista: conserva la
+  // clase y su animación sigue sin reiniciarse, aunque la respuesta llegue antes
+  // de que termine de caer (un bot rápido responde en milisegundos).
   const cells: { key: CellKey; human: boolean }[] = [];
   state.board.forEach((rowCells, row) =>
     rowCells.forEach((cell, column) => {
       if (cell === 0 || baseline[row][column] !== 0) return;
-      if (alreadyShown === row && previous?.pending === column) return;
       cells.push({ key: `${row}:${column}`, human: cell === state.human });
     }),
   );

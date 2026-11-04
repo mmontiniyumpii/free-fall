@@ -121,4 +121,21 @@ describe('Status', () => {
     expect(render(fakeState('bot_won')).host.querySelector('.title--celebrate')).toBeNull();
     expect(render(fakeState('draw')).host.querySelector('.title--celebrate')).toBeNull();
   });
+
+  it('muestra la última jugada del bot como información, con miles separados', () => {
+    const info = () =>
+      render(fakeState('fixture')).host.querySelector('.bot-info')?.textContent?.replace(/\s+/g, ' ').trim();
+
+    expect(info()).toBe('Última del bot columna 4 · profundidad 9 · 412 380 nodos · 1 290 ms');
+  });
+
+  it('no muestra last_bot mientras piensa, sin conexión o si el bot aún no jugó', () => {
+    const has = (state: GameState | null, inputs: Inputs = {}) =>
+      render(state, inputs).host.querySelector('.bot-info') !== null;
+
+    expect(has(fakeState('fixture'), { thinking: true })).toBe(false);
+    expect(has(fakeState('fixture'), { retryIn: 3 })).toBe(false);
+    expect(has(fakeState('playing', 'human'))).toBe(false);
+    expect(has(null)).toBe(false);
+  });
 });
