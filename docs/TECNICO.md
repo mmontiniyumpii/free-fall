@@ -200,3 +200,13 @@ El historial necesita saber quién hizo cada jugada, y `history` solo trae colum
 - `npm install` en la raíz instala también las dependencias de `web/`, mediante `postinstall`.
 - El front tiene 152 tests y no reporta cobertura: medirla necesita una dependencia nueva (`@vitest/coverage-v8`) que no se agregó. El umbral del 70 % de las bases aplica a reglas y algoritmo, que están en Go.
 - El presupuesto de estilos por componente de `web/angular.json` pasa de 4 a 6 kB de advertencia y de 8 a 10 kB de error. `board.css`, con las animaciones del diseño, pesa 4,7 kB; partirlo solo para esquivar el límite hubiera ocultado su peso real.
+
+### D12 — El umbral de cobertura se exige por paquete (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_BACKEND.md` §4 y §7, paso 1: `cmd/covercheck` "falla si la cobertura de game+engine < 70 %".
+
+**Qué cambia.** `covercheck` exige el 70 % a `internal/game` y a `internal/engine` **por separado**, no a la suma de los dos.
+
+**Por qué.** Es más estricto: si cada paquete pasa el 70 %, la suma también. Con la suma, un `engine` al 95 % podría esconder un `game` al 30 %, y las bases piden cobertura de "reglas y algoritmo".
+
+**Cómo se verifica.** Lo prueba `cmd/covercheck/main_test.go`, en el caso "one package below threshold fails even if combined is above". Hoy `npm test` informa `game` al 100 % (43/43 sentencias) y `engine` al 97 % (159/164).
