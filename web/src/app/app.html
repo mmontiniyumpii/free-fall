@@ -42,9 +42,11 @@
     <app-toolbar
       [mode]="toolbarMode()"
       [first]="first()"
+      [difficulty]="difficulty()"
       [busy]="busy()"
       [showKeys]="humanTurn() && !touch"
       (firstChange)="first.set($event)"
+      (difficultyChange)="difficulty.set($event)"
       (newGame)="newGame()"
       (backToSetup)="backToSetup()"
       (retry)="retry()"

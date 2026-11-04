@@ -16,7 +16,8 @@ import { History } from './history/history';
 import { Rules } from './rules/rules';
 import { classifyError } from './game/api-error';
 import { GameApi } from './game/game-api';
-import { ApiError, FirstPlayer, GameState } from './game/game-state';
+import { DEFAULT_DIFFICULTY } from './game/difficulty';
+import { ApiError, Difficulty, FirstPlayer, GameState } from './game/game-state';
 import { Status, StatusNotice } from './status/status';
 import { Toolbar, ToolbarMode } from './toolbar/toolbar';
 
@@ -49,6 +50,7 @@ export class App {
   /** Pantalla de inicio o partida (incluye el instante en que se está creando). */
   protected readonly phase = signal<'setup' | 'game'>('setup');
   protected readonly first = signal<FirstPlayer>('human');
+  protected readonly difficulty = signal<Difficulty>(DEFAULT_DIFFICULTY);
   /** Hay un pedido en curso: el tablero queda bloqueado hasta la respuesta. */
   protected readonly busy = signal(false);
   /** Jugada del humano enviada y sin respuesta; el tablero la dibuja cayendo. */
@@ -109,7 +111,7 @@ export class App {
     this.phase.set('game');
     this.game.set(null);
     this.unanswered = { kind: 'create' };
-    this.send(this.api.create(this.first()));
+    this.send(this.api.create(this.first(), this.difficulty()));
   }
 
   protected backToSetup(): void {
@@ -143,7 +145,7 @@ export class App {
     const pending = this.unanswered;
     if (!pending) return;
     if (pending.kind === 'create') {
-      this.send(this.api.create(this.first()));
+      this.send(this.api.create(this.first(), this.difficulty()));
       return;
     }
     this.busy.set(true);

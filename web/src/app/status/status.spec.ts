@@ -41,7 +41,7 @@ describe('Status', () => {
   it('turno del humano: número de jugada, "Tu turno" e indicador en Vos', () => {
     const view = render(fakeState('fixture'));
 
-    expect(view.eyebrow).toBe('Jugada 7');
+    expect(view.eyebrow).toBe('Jugada 7 · Difícil');
     expect(view.title).toBe('Tu turno');
     expect(view.detail).toBe('Elegí una columna.');
     expect(view.turn).toBe('human');
@@ -147,5 +147,10 @@ describe('Status', () => {
     expect(render(fakeState('fixture'), { touch: true, focusedColumn: 5 }).detail).toBe(
       'Tocá de nuevo la columna 6 para soltar.',
     );
+  });
+
+  it('el eyebrow muestra la dificultad que devolvió el bot', () => {
+    expect(render({ ...fakeState('fixture'), difficulty: 'easy' }).eyebrow).toBe('Jugada 7 · Fácil');
+    expect(render({ ...fakeState('fixture'), difficulty: 'medium' }).eyebrow).toBe('Jugada 7 · Normal');
   });
 });

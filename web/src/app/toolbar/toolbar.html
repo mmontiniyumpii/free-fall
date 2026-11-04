@@ -20,6 +20,23 @@
         }
       </div>
     </fieldset>
+    <fieldset class="field">
+      <legend class="field-label">Dificultad</legend>
+      <div class="segmented">
+        @for (option of difficulties; track option.value) {
+          <button
+            type="button"
+            class="segment"
+            [class.segment--selected]="difficulty() === option.value"
+            [attr.aria-pressed]="difficulty() === option.value"
+            (click)="difficultyChange.emit(option.value)"
+          >
+            {{ option.label }}
+          </button>
+        }
+      </div>
+      <p class="field-detail">{{ difficultyDetail() }}</p>
+    </fieldset>
     <button type="button" class="primary" [disabled]="busy()" (click)="newGame.emit()">Empezar partida</button>
   }
   @case ('playing') {

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
+import { difficultyLabel } from '../game/difficulty';
 import { GameState } from '../game/game-state';
 import { landingRow } from '../game/landing-row';
 import { lineDirection, sortWinningCells } from '../game/winning-line';
@@ -73,7 +74,7 @@ export class Status {
 
     if (retryIn !== null) {
       return {
-        eyebrow: `Jugada ${moves + 1}`,
+        eyebrow: playEyebrow(state, moves),
         title: 'Sin conexión',
         detail: `No se pudo conectar con el bot. Reintentamos en ${retryIn} s.`,
         alert: true,
@@ -84,7 +85,7 @@ export class Status {
 
     if (this.thinking()) {
       return {
-        eyebrow: `Jugada ${moves + 1}`,
+        eyebrow: playEyebrow(state, moves),
         title: 'El bot está pensando',
         detail: 'Responde en menos de 2 segundos.',
         alert: false,
@@ -130,7 +131,7 @@ export class Status {
 
     if (state.to_move !== state.human) {
       return {
-        eyebrow: `Jugada ${moves + 1}`,
+        eyebrow: playEyebrow(state, moves),
         title: 'Turno del bot',
         detail: 'Esperando la jugada del bot.',
         alert: false,
@@ -140,7 +141,7 @@ export class Status {
     }
 
     return {
-      eyebrow: `Jugada ${moves + 1}`,
+      eyebrow: playEyebrow(state, moves),
       title: 'Tu turno',
       alert: false,
       ...this.humanTurnDetail(state),
@@ -184,4 +185,10 @@ function describeLine(state: GameState): string {
 /** 412380 → "412 380", con espacio fino como en el plan. */
 function groupDigits(value: number): string {
   return String(value).replace(/\B(?=(\d{3})+(?!\d))/g, '\u202f');
+}
+
+/** "Jugada 5 · Fácil": la dificultad sale del GameState que devolvió el bot. */
+function playEyebrow(state: GameState | null, moves: number): string {
+  const play = `Jugada ${moves + 1}`;
+  return state ? `${play} · ${difficultyLabel(state.difficulty)}` : play;
 }

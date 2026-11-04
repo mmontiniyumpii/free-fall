@@ -1,15 +1,22 @@
 import { TestBed } from '@angular/core/testing';
 
-import { FirstPlayer } from '../game/game-state';
+import { Difficulty, FirstPlayer } from '../game/game-state';
 import { Toolbar, ToolbarMode } from './toolbar';
 
-function render(mode: ToolbarMode, first: FirstPlayer = 'human', busy = false) {
+function render(
+  mode: ToolbarMode,
+  first: FirstPlayer = 'human',
+  busy = false,
+  difficulty: Difficulty = 'hard',
+) {
   const fixture = TestBed.createComponent(Toolbar);
   fixture.componentRef.setInput('mode', mode);
   fixture.componentRef.setInput('first', first);
+  fixture.componentRef.setInput('difficulty', difficulty);
   fixture.componentRef.setInput('busy', busy);
   const events: string[] = [];
   fixture.componentInstance.firstChange.subscribe((value) => events.push(`first:${value}`));
+  fixture.componentInstance.difficultyChange.subscribe((value) => events.push(`difficulty:${value}`));
   fixture.componentInstance.newGame.subscribe(() => events.push('newGame'));
   fixture.componentInstance.backToSetup.subscribe(() => events.push('backToSetup'));
   fixture.componentInstance.retry.subscribe(() => events.push('retry'));
@@ -79,5 +86,22 @@ describe('Toolbar', () => {
     button('Reiniciar')?.click();
 
     expect(events).toEqual(['retry', 'newGame']);
+  });
+
+  it('en el inicio marca la dificultad elegida, la describe y deja cambiarla', () => {
+    const { host, button, events } = render('setup', 'human', false, 'medium');
+
+    expect(button('Normal')?.getAttribute('aria-pressed')).toBe('true');
+    expect(button('Difícil')?.getAttribute('aria-pressed')).toBe('false');
+    expect(host.querySelector('.field-detail')?.textContent).toContain('Mira 6 jugadas adelante');
+
+    button('Fácil')?.click();
+    expect(events).toEqual(['difficulty:easy']);
+  });
+
+  it('durante la partida no se muestra el selector de dificultad', () => {
+    const { button } = render('playing');
+
+    expect(button('Fácil')).toBeNull();
   });
 });

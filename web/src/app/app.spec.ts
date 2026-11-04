@@ -258,4 +258,19 @@ describe('App', () => {
     await app.settle();
     expect(app.discs('human')).toBe(1);
   });
+
+  describe('dificultad', () => {
+    it('por defecto es Difícil, se elige en el inicio y Reiniciar la conserva', async () => {
+      const app = await start();
+      expect(app.button('Difícil')?.getAttribute('aria-pressed')).toBe('true');
+
+      await app.click('Fácil');
+      await app.click('Empezar partida');
+      const eyebrow = () => app.host.querySelector('app-status .eyebrow')?.textContent?.trim();
+      expect(eyebrow()).toBe('Jugada 1 · Fácil');
+
+      await app.click('Reiniciar');
+      expect(eyebrow()).toBe('Jugada 1 · Fácil');
+    });
+  });
 });
