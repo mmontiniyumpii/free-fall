@@ -194,4 +194,84 @@ describe('Board', () => {
       vi.useRealTimers();
     });
   });
+
+  describe('caída de fichas', () => {
+    function drops(host: HTMLElement): string[] {
+      return Array.from(host.querySelectorAll<HTMLElement>('.disc--drop'), (disc) => {
+        const cell = disc.closest('.cell') as HTMLElement;
+        const column = (disc.closest('.column') as HTMLElement).dataset['column'];
+        const kind = disc.classList.contains('disc--human') ? 'human' : 'bot';
+        return `${kind}@${cell.dataset['row']}:${column}`;
+      });
+    }
+
+    function withMove(state: GameState, row: number, column: number, player: 1 | 2): GameState {
+      const board = state.board.map((cells) => [...cells]);
+      board[row][column] = player;
+      return { ...state, board, history: [...state.history, column] };
+    }
+
+    it('la jugada pendiente del humano se dibuja ya, cayendo, donde cae', () => {
+      const { fixture, host } = setup(fakeState('fixture'));
+
+      fixture.componentRef.setInput('pendingColumn', 3);
+      fixture.detectChanges();
+
+      // Columna 3 del fixture: cae en la fila 4.
+      expect(drops(host)).toEqual(['human@4:3']);
+    });
+
+    it('cuando llega la respuesta cae solo la ficha del bot: la del humano ya cayó', () => {
+      const before = fakeState('fixture');
+      const { fixture, host } = setup(before);
+      fixture.componentRef.setInput('pendingColumn', 3);
+      fixture.detectChanges();
+
+      const afterHuman = withMove(before, 4, 3, 1);
+      fixture.componentRef.setInput('state', withMove(afterHuman, 2, 4, 2));
+      fixture.componentRef.setInput('pendingColumn', null);
+      fixture.detectChanges();
+
+      expect(drops(host)).toEqual(['bot@2:4']);
+    });
+
+    it('si llegan dos fichas nuevas de golpe, cae primero la del humano', () => {
+      const before = fakeState('fixture');
+      const { fixture, host } = setup(before);
+
+      fixture.componentRef.setInput('state', withMove(withMove(before, 4, 3, 1), 2, 4, 2));
+      fixture.detectChanges();
+
+      expect(drops(host).sort()).toEqual(['bot@2:4', 'human@4:3']);
+      const delays = Array.from(host.querySelectorAll<HTMLElement>('.disc--drop'), (disc) => ({
+        human: disc.classList.contains('disc--human'),
+        delay: disc.style.getPropertyValue('--drop-delay'),
+      }));
+      expect(delays.find((d) => d.human)?.delay).toBe('0ms');
+      expect(delays.find((d) => !d.human)?.delay).not.toBe('0ms');
+    });
+
+    it('cargar una partida empezada no hace caer nada', () => {
+      expect(drops(render(fakeState('fixture')))).toEqual([]);
+    });
+
+    it('la apertura del bot en una partida nueva cae', () => {
+      const { fixture, host } = setup(null);
+
+      fixture.componentRef.setInput('state', fakeState('playing', 'bot'));
+      fixture.detectChanges();
+
+      expect(drops(host)).toEqual(['bot@0:3']);
+    });
+  });
+
+  it('sin conexión atenúa el tablero y lo avisa en el carril', () => {
+    const { fixture, host } = setup(fakeState('fixture'));
+
+    fixture.componentRef.setInput('offline', true);
+    fixture.detectChanges();
+
+    expect(host.querySelector('.board--offline')).not.toBeNull();
+    expect(host.querySelector('.offline')?.textContent).toContain('Sin conexión con el bot');
+  });
 });

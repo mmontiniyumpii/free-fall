@@ -4,7 +4,14 @@ import fixture from '../../../../docs/fixtures/game-state.example.json';
 
 import { Cell, FirstPlayer, GameState } from './game-state';
 
-export type FakeScenario = 'playing' | 'fixture' | 'won' | 'draw' | 'illegal_move';
+export type FakeScenario =
+  | 'playing'
+  | 'fixture'
+  | 'won'
+  | 'draw'
+  | 'illegal_move'
+  | 'offline'
+  | 'lost';
 
 export const FAKE_SCENARIOS: readonly FakeScenario[] = [
   'playing',
@@ -12,7 +19,12 @@ export const FAKE_SCENARIOS: readonly FakeScenario[] = [
   'won',
   'draw',
   'illegal_move',
+  'offline',
+  'lost',
 ];
+
+/** Escenarios que arrancan con una partida nueva; el resto parte de un estado fijo. */
+type NewGameScenario = 'playing' | 'offline' | 'lost';
 
 // El JSON se importa con tipos anchos (number, string); la forma se verifica en
 // fake-scenarios.spec.ts.
@@ -113,7 +125,7 @@ const draw: GameState = {
   last_bot: { column: 7, depth: 1, nodes: 1, elapsed_ms: 0 },
 };
 
-const STATES: Record<Exclude<FakeScenario, 'playing'>, GameState> = {
+const STATES: Record<Exclude<FakeScenario, NewGameScenario>, GameState> = {
   fixture: midGame,
   won,
   draw,
@@ -122,11 +134,14 @@ const STATES: Record<Exclude<FakeScenario, 'playing'>, GameState> = {
 };
 
 /**
- * Estado inicial de un escenario. `playing` respeta quién abre; el resto es
- * fijo. Copia profunda: quien la reciba puede mutarla sin tocar los datos.
+ * Estado inicial de un escenario. `playing`, `offline` y `lost` respetan quién
+ * abre; el resto es fijo. Copia profunda: quien la reciba puede mutarla sin
+ * tocar los datos.
  */
 export function fakeState(scenario: FakeScenario, first: FirstPlayer = 'human'): GameState {
-  if (scenario === 'playing') return newGame(first);
+  if (scenario === 'playing' || scenario === 'offline' || scenario === 'lost') {
+    return newGame(first);
+  }
   return structuredClone(STATES[scenario]);
 }
 

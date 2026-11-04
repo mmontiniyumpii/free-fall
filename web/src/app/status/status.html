@@ -2,7 +2,7 @@
 <div class="eyebrow">{{ status.eyebrow }}</div>
 
 <div class="title-row">
-  <h1 class="title">{{ status.title }}</h1>
+  <h1 class="title" [class.title--alert]="status.alert">{{ status.title }}</h1>
   @if (thinking()) {
     <span class="dots" aria-hidden="true"><span></span><span></span><span></span></span>
   }

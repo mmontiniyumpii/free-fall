@@ -1,4 +1,4 @@
-<div class="board" (mouseleave)="focus(null)">
+<div class="board" [class.board--offline]="offline()" (mouseleave)="focus(null)">
   <!-- Carril: previsualización de la ficha y aviso de columna llena. También es zona de clic. -->
   <div class="lane" aria-hidden="true">
     @for (column of columns(); track column.index) {
@@ -14,6 +14,21 @@
         @if (interactive() && !column.legal) {
           <span class="full" [class.full--invalid]="column.invalid">Llena</span>
         }
+      </span>
+    }
+    @if (offline()) {
+      <span class="offline">
+        <!-- Ícono wifi-off de Lucide (ISC), inline para no sumar dependencias. -->
+        <svg class="icon" viewBox="0 0 24 24">
+          <path d="M12 20h.01" />
+          <path d="M8.5 16.429a5 5 0 0 1 7 0" />
+          <path d="M5 12.859a10 10 0 0 1 5.17-2.69" />
+          <path d="M19 12.859a10 10 0 0 0-2.007-1.523" />
+          <path d="M2 8.82a15 15 0 0 1 4.177-2.643" />
+          <path d="M22 8.82a15 15 0 0 0-11.288-3.764" />
+          <path d="m2 2 20 20" />
+        </svg>
+        Sin conexión con el bot
       </span>
     }
   </div>
@@ -44,7 +59,14 @@
                 <span class="ghost"></span>
               }
               @if (cell.owner) {
-                <span class="disc" [class.disc--human]="cell.owner === 'human'" [class.disc--bot]="cell.owner === 'bot'"></span>
+                <span
+                  class="disc"
+                  [class.disc--human]="cell.owner === 'human'"
+                  [class.disc--bot]="cell.owner === 'bot'"
+                  [class.disc--drop]="cell.dropping"
+                  [style.--rows-above]="cell.rowsAbove"
+                  [style.--drop-delay]="cell.dropDelayMs + 'ms'"
+                ></span>
               }
             </span>
           </span>

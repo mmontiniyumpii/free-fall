@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, input, output } from '@angular/core
 
 import { FirstPlayer } from '../game/game-state';
 
-export type ToolbarMode = 'setup' | 'playing' | 'over';
+export type ToolbarMode = 'setup' | 'playing' | 'offline' | 'over';
 
 interface StarterOption {
   value: FirstPlayer;
@@ -33,6 +33,8 @@ export class Toolbar {
   /** Crea una partida con la configuración elegida (inicio y reinicio). */
   readonly newGame = output<void>();
   readonly backToSetup = output<void>();
+  /** Reintenta ya el pedido que falló por falta de conexión. */
+  readonly retry = output<void>();
 
   protected readonly starters = STARTERS;
 }

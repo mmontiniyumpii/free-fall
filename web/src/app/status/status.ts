@@ -5,10 +5,18 @@ import { landingRow } from '../game/landing-row';
 
 type Side = 'human' | 'bot';
 
+/** Mensaje que reemplaza al estado normal, por ejemplo si la partida se perdió. */
+export interface StatusNotice {
+  title: string;
+  detail: string;
+}
+
 interface StatusView {
   eyebrow: string;
   title: string;
   detail: string;
+  /** Título y detalle en ámbar (sin conexión). */
+  alert: boolean;
   /** El detalle es un aviso (columna llena). */
   warning: boolean;
   /** De quién es el turno en el indicador; null lo oculta. */
@@ -32,16 +40,37 @@ export class Status {
   readonly thinking = input(false);
   readonly focusedColumn = input<number | null>(null);
   readonly rejectedColumn = input<number | null>(null);
+  /** Segundos hasta el próximo reintento; null si hay conexión. */
+  readonly retryIn = input<number | null>(null);
+  readonly notice = input<StatusNotice | null>(null);
 
   protected readonly view = computed<StatusView>(() => {
     const state = this.state();
     const moves = state?.history.length ?? 0;
+    const notice = this.notice();
+    const retryIn = this.retryIn();
+
+    if (notice) {
+      return { eyebrow: 'Partida interrumpida', ...notice, alert: false, warning: false, turn: null };
+    }
+
+    if (retryIn !== null) {
+      return {
+        eyebrow: `Jugada ${moves + 1}`,
+        title: 'Sin conexión',
+        detail: `No se pudo conectar con el bot. Reintentamos en ${retryIn} s.`,
+        alert: true,
+        warning: false,
+        turn: null,
+      };
+    }
 
     if (this.thinking()) {
       return {
         eyebrow: `Jugada ${moves + 1}`,
         title: 'El bot está pensando',
         detail: 'Responde en menos de 2 segundos.',
+        alert: false,
         warning: false,
         turn: 'bot',
       };
@@ -52,6 +81,7 @@ export class Status {
         eyebrow: 'Nueva partida',
         title: 'Cuatro en línea',
         detail: 'Conectá cuatro fichas antes que el bot: en horizontal, vertical o diagonal.',
+        alert: false,
         warning: false,
         turn: null,
       };
@@ -62,6 +92,7 @@ export class Status {
         eyebrow: `Fin de la partida · ${moves} jugadas`,
         title: 'Empate',
         detail: 'Se llenaron las 56 casillas sin ganador.',
+        alert: false,
         warning: false,
         turn: null,
       };
@@ -73,6 +104,7 @@ export class Status {
         eyebrow: `Fin de la partida · ${moves} jugadas`,
         title: humanWon ? 'Ganaste' : 'Ganó el bot',
         detail: humanWon ? 'Conectaste cuatro.' : 'El bot conectó cuatro.',
+        alert: false,
         warning: false,
         turn: null,
       };
@@ -83,6 +115,7 @@ export class Status {
         eyebrow: `Jugada ${moves + 1}`,
         title: 'Turno del bot',
         detail: 'Esperando la jugada del bot.',
+        alert: false,
         warning: false,
         turn: 'bot',
       };
@@ -91,6 +124,7 @@ export class Status {
     return {
       eyebrow: `Jugada ${moves + 1}`,
       title: 'Tu turno',
+      alert: false,
       ...this.humanTurnDetail(state),
       turn: 'human',
     };

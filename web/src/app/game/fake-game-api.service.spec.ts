@@ -92,20 +92,48 @@ describe('FakeGameApiService', () => {
     expect(answered).toBe(true);
   });
 
-  it('la ficha del humano cae abajo y las jugadas se acumulan', async () => {
+  it('la ficha del humano cae abajo, el bot responde en un orden fijo y las jugadas se acumulan', async () => {
     vi.useFakeTimers();
     const api = fakeApi('playing');
     await firstValueFrom(api.create('human'));
 
-    const first = firstValueFrom(api.move('l_0001', 0));
+    const first = firstValueFrom(api.move('l_fake', 0));
     await vi.advanceTimersByTimeAsync(1000);
-    const second = firstValueFrom(api.move('l_0001', 0));
+    const second = firstValueFrom(api.move('l_fake', 0));
     await vi.advanceTimersByTimeAsync(1000);
     const state = await second;
 
     expect((await first).board[0][0]).toBe(1);
-    expect(state.board[0][0]).toBe(1);
     expect(state.board[1][0]).toBe(1);
-    expect(state.history).toEqual([0, 0]);
+    // El bot falso juega la primera columna disponible de 3, 4, 2, 5, 1, 6, 0, 7.
+    expect(state.board[0][3]).toBe(2);
+    expect(state.board[1][3]).toBe(2);
+    expect(state.history).toEqual([0, 3, 0, 3]);
+    expect(state.to_move).toBe(1);
+    expect(state.last_bot?.column).toBe(3);
+  });
+
+  it('offline: la primera jugada se aplica pero la respuesta se pierde', async () => {
+    vi.useFakeTimers();
+    const api = fakeApi('offline');
+    await firstValueFrom(api.create('human'));
+
+    const lost = firstValueFrom(api.move('l_fake', 5));
+    const failed = expect(lost).rejects.toMatchObject({ status: 0 });
+    await vi.advanceTimersByTimeAsync(1000);
+    await failed;
+
+    const state = await firstValueFrom(api.get('l_fake'));
+    expect(state.history).toEqual([5, 3]);
+  });
+
+  it('lost: las jugadas responden 404 unknown_game', async () => {
+    const api = fakeApi('lost');
+    await firstValueFrom(api.create('human'));
+
+    await expect(firstValueFrom(api.move('l_fake', 0))).rejects.toMatchObject({
+      status: 404,
+      error: { error: 'unknown_game' },
+    });
   });
 });

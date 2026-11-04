@@ -5,7 +5,7 @@ import { firstValueFrom } from 'rxjs';
 
 import { fakeState } from './fake-scenarios';
 import { API_URL, apiUrlFor } from './game-api';
-import { GameApiService } from './game-api.service';
+import { GameApiService, REQUEST_TIMEOUT_MS } from './game-api.service';
 
 const BASE = 'http://bot.test:3000';
 
@@ -81,6 +81,29 @@ describe('GameApiService', () => {
       status: 400,
       error: { ok: false, error: 'illegal_move' },
     });
+  });
+});
+
+describe('GameApiService sin respuesta', () => {
+  afterEach(() => vi.useRealTimers());
+
+  it('corta el pedido con TimeoutError si el bot no responde a tiempo', async () => {
+    vi.useFakeTimers();
+    TestBed.configureTestingModule({
+      providers: [
+        provideHttpClient(),
+        provideHttpClientTesting(),
+        GameApiService,
+        { provide: API_URL, useValue: BASE },
+      ],
+    });
+    const api = TestBed.inject(GameApiService);
+    const response = firstValueFrom(api.move('l_0001', 3));
+    const rejected = expect(response).rejects.toMatchObject({ name: 'TimeoutError' });
+
+    await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS + 1);
+
+    await rejected;
   });
 });
 

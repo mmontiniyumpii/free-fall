@@ -8,6 +8,8 @@ interface Inputs {
   thinking?: boolean;
   focusedColumn?: number | null;
   rejectedColumn?: number | null;
+  retryIn?: number | null;
+  notice?: { title: string; detail: string } | null;
 }
 
 function render(state: GameState | null, inputs: Inputs = {}) {
@@ -80,5 +82,23 @@ describe('Status', () => {
     expect(draw.title).toBe('Empate');
     expect(draw.eyebrow).toBe('Fin de la partida · 56 jugadas');
     expect(draw.turn).toBeNull();
+  });
+
+  it('sin conexión: título de alerta y cuenta regresiva del reintento', () => {
+    const view = render(fakeState('fixture'), { retryIn: 3 });
+
+    expect(view.title).toBe('Sin conexión');
+    expect(view.detail).toBe('No se pudo conectar con el bot. Reintentamos en 3 s.');
+    expect(view.host.querySelector('.title--alert')).not.toBeNull();
+  });
+
+  it('un aviso (partida perdida) reemplaza al estado normal', () => {
+    const view = render(fakeState('fixture'), {
+      notice: { title: 'La partida ya no existe', detail: 'Empezá una nueva.' },
+    });
+
+    expect(view.title).toBe('La partida ya no existe');
+    expect(view.detail).toBe('Empezá una nueva.');
+    expect(view.turn).toBeNull();
   });
 });

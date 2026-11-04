@@ -12,6 +12,7 @@ function render(mode: ToolbarMode, first: FirstPlayer = 'human', busy = false) {
   fixture.componentInstance.firstChange.subscribe((value) => events.push(`first:${value}`));
   fixture.componentInstance.newGame.subscribe(() => events.push('newGame'));
   fixture.componentInstance.backToSetup.subscribe(() => events.push('backToSetup'));
+  fixture.componentInstance.retry.subscribe(() => events.push('retry'));
   fixture.detectChanges();
   const host = fixture.nativeElement as HTMLElement;
   const button = (text: string) =>
@@ -69,5 +70,14 @@ describe('Toolbar', () => {
     fixture.detectChanges();
 
     expect(host.querySelector('.hint')?.textContent).toContain('teclas 1 a 8');
+  });
+
+  it('sin conexión ofrece reintentar ya o reiniciar', () => {
+    const { button, events } = render('offline');
+
+    button('Reintentar')?.click();
+    button('Reiniciar')?.click();
+
+    expect(events).toEqual(['retry', 'newGame']);
   });
 });

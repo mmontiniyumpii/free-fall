@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 
-import { App } from './app';
+import { App, RETRY_SECONDS } from './app';
 import { FAKE_SCENARIO, FAKE_THINK_MS, FakeGameApiService } from './game/fake-game-api.service';
 import { FakeScenario } from './game/fake-scenarios';
 import { GameApi } from './game/game-api';
@@ -12,6 +12,7 @@ async function start(scenario: FakeScenario = 'playing') {
       { provide: GameApi, useClass: FakeGameApiService },
       { provide: FAKE_SCENARIO, useValue: scenario },
       { provide: FAKE_THINK_MS, useValue: 0 },
+      { provide: RETRY_SECONDS, useValue: 1 },
     ],
   });
   const fixture = TestBed.createComponent(App);
@@ -109,5 +110,69 @@ describe('App', () => {
 
     expect(app.title()).toBe('Cuatro en línea');
     expect(app.button('Empezar partida')).not.toBeNull();
+  });
+
+  describe('errores del bot', () => {
+    it('sin conexión: avisa, y al reintentar no juega dos veces la misma ficha', async () => {
+      const app = await start('offline');
+      await app.click('Empezar partida');
+
+      app.columns()[5].click();
+      await app.settle();
+
+      expect(app.title()).toBe('Sin conexión');
+      expect(app.host.querySelector('.board--offline')).not.toBeNull();
+      // La ficha enviada sigue a la vista mientras no hay respuesta.
+      expect(app.discs('human')).toBe(1);
+
+      await app.click('Reintentar');
+
+      // El fake aplicó la jugada antes de perder la respuesta: el reintento la
+      // encuentra en history y no la reenvía.
+      expect(app.title()).toBe('Tu turno');
+      expect(app.discs('human')).toBe(1);
+      expect(app.discs('bot')).toBe(1);
+      expect(app.host.querySelector('.board--offline')).toBeNull();
+    });
+
+    it('sin conexión reintenta solo al terminar la cuenta regresiva', async () => {
+      const app = await start('offline');
+      await app.click('Empezar partida');
+      app.columns()[5].click();
+      await app.settle();
+      expect(app.host.querySelector('.detail')?.textContent).toContain('Reintentamos en 1 s');
+
+      await new Promise((resolve) => setTimeout(resolve, 1100));
+      await app.settle();
+
+      expect(app.title()).toBe('Tu turno');
+      expect(app.discs('human')).toBe(1);
+    });
+
+    it('columna llena según el bot: se descarta la ficha y se avisa', async () => {
+      const app = await start('illegal_move');
+      await app.click('Empezar partida');
+      const before = app.discs('human');
+
+      app.columns()[5].click();
+      await app.settle();
+
+      expect(app.discs('human')).toBe(before);
+      expect(app.host.querySelector('.detail')?.textContent).toBe(
+        'La columna 6 está llena. Elegí otra.',
+      );
+    });
+
+    it('partida perdida (404): lo explica y ofrece empezar otra', async () => {
+      const app = await start('lost');
+      await app.click('Empezar partida');
+
+      app.columns()[0].click();
+      await app.settle();
+
+      expect(app.title()).toBe('La partida ya no existe');
+      expect(app.discs('human')).toBe(0);
+      expect(app.button('Jugar de nuevo')).not.toBeNull();
+    });
   });
 });

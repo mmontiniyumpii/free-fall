@@ -178,3 +178,14 @@ kbd {
   font-family: var(--font-mono);
   color: var(--color-text-2);
 }
+
+.pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.pair .primary {
+  height: 40px;
+  font-size: 14px;
+}

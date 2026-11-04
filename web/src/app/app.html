@@ -6,7 +6,9 @@
   <section class="board-area">
     <app-board
       [state]="game()"
-      [disabled]="busy()"
+      [disabled]="boardLocked()"
+      [pendingColumn]="pendingColumn()"
+      [offline]="offline()"
       (columnSelected)="play($event)"
       (columnFocused)="focusedColumn.set($event)"
       (columnRejected)="rejectedColumn.set($event)"
@@ -18,6 +20,8 @@
     [thinking]="thinking()"
     [focusedColumn]="focusedColumn()"
     [rejectedColumn]="rejectedColumn()"
+    [retryIn]="retryIn()"
+    [notice]="notice()"
   />
   <app-toolbar
     class="panel"
@@ -28,5 +32,6 @@
     (firstChange)="first.set($event)"
     (newGame)="newGame()"
     (backToSetup)="backToSetup()"
+    (retry)="retry()"
   />
 </main>
