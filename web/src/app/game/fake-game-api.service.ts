@@ -9,7 +9,7 @@ import { landingRow } from './landing-row';
 
 /**
  * Escenario del fake; en el navegador se elige con
- * `?scenario=fixture|won|draw|illegal_move|offline|lost`.
+ * `?scenario=fixture|won|bot_won|draw|illegal_move|offline|lost`.
  */
 export const FAKE_SCENARIO = new InjectionToken<FakeScenario>('FAKE_SCENARIO', {
   factory: () =>

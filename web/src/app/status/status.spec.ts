@@ -101,4 +101,18 @@ describe('Status', () => {
     expect(view.detail).toBe('Empezá una nueva.');
     expect(view.turn).toBeNull();
   });
+
+  it('al ganar o perder describe la línea con columnas contadas desde 1', () => {
+    expect(render(fakeState('won')).detail).toBe(
+      'Conectaste cuatro en diagonal, de la columna 3 a la 6.',
+    );
+    const lost = render(fakeState('bot_won'));
+    expect(lost.title).toBe('Ganó el bot');
+    expect(lost.detail).toBe('Conectó cuatro en vertical, en la columna 7.');
+    const horizontal = fakeState('won');
+    horizontal.winning_cells = [[2, 4], [2, 1], [2, 3], [2, 2]];
+    expect(render(horizontal).detail).toBe(
+      'Conectaste cuatro en horizontal, de la columna 2 a la 5.',
+    );
+  });
 });

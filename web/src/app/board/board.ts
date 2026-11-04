@@ -10,8 +10,9 @@ import {
   signal,
 } from '@angular/core';
 
-import { COLUMNS, Cell, GameState, ROWS } from '../game/game-state';
+import { COLUMNS, Cell, CellPosition, GameState, ROWS } from '../game/game-state';
 import { landingRow } from '../game/landing-row';
+import { sortWinningCells } from '../game/winning-line';
 
 type Owner = 'human' | 'bot' | null;
 
@@ -25,6 +26,21 @@ interface CellView {
   rowsAbove: number;
   /** Espera antes de caer, para que dos fichas nuevas caigan en orden. */
   dropDelayMs: number;
+  /** Posición en la línea ganadora (0 a 3), o -1 si no es parte de ella. */
+  winOrder: number;
+  /** Partida ganada y esta ficha no es de la línea: se atenúa. */
+  dimmed: boolean;
+}
+
+/**
+ * Trazo que une los centros de la línea ganadora, en unidades de celda desde
+ * la esquina superior izquierda de la grilla (fila 0 abajo ya convertida).
+ */
+interface Stroke {
+  x: number;
+  y: number;
+  length: number;
+  angleDeg: number;
 }
 
 interface ColumnView {
@@ -118,10 +134,34 @@ export class Board {
     computation: (current, previous) => freshCells(current, previous?.source ?? null),
   });
 
+  /** Línea ganadora ordenada, solo si el backend la informó. */
+  private readonly winLine = computed<CellPosition[]>(() => {
+    const state = this.state();
+    if (state?.status !== 'won' || state.winning_cells?.length !== 4) return [];
+    return sortWinningCells(state.winning_cells);
+  });
+
+  protected readonly stroke = computed<Stroke | null>(() => {
+    const line = this.winLine();
+    if (line.length === 0) return null;
+    const [firstRow, firstColumn] = line[0];
+    const [lastRow, lastColumn] = line[line.length - 1];
+    // En pantalla y crece hacia abajo: la fila del contrato se invierte acá.
+    const dx = lastColumn - firstColumn;
+    const dy = ROWS - 1 - lastRow - (ROWS - 1 - firstRow);
+    return {
+      x: firstColumn + 0.5,
+      y: ROWS - 1 - firstRow + 0.5,
+      length: Math.hypot(dx, dy),
+      angleDeg: (Math.atan2(dy, dx) * 180) / Math.PI,
+    };
+  });
+
   protected readonly columns = computed<ColumnView[]>(() => {
     const state = this.state();
     const board = state?.board ?? EMPTY_BOARD;
     const interactive = this.interactive();
+    const winLine = this.winLine();
     return Array.from({ length: COLUMNS }, (_, column) => {
       const legal = this.isLegal(column);
       const focused = interactive && legal && this.hovered() === column;
@@ -138,9 +178,13 @@ export class Board {
           const key: CellKey = `${row}:${column}`;
           const isPending = key === pending;
           const order = fresh.indexOf(key);
+          const owner = isPending ? 'human' : state ? ownerOf(state, board[row][column]) : null;
+          const winOrder = winLine.findIndex(([r, c]) => r === row && c === column);
           return {
             row,
-            owner: isPending ? 'human' : state ? ownerOf(state, board[row][column]) : null,
+            owner,
+            winOrder,
+            dimmed: winLine.length > 0 && owner !== null && winOrder < 0,
             ghost: row === ghostRow,
             dropping: isPending || order >= 0,
             rowsAbove: ROWS - 1 - row,

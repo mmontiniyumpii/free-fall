@@ -54,6 +54,9 @@
       >
         @for (cell of column.cells; track cell.row) {
           <span class="cell" [attr.data-row]="cell.row">
+            @if (cell.winOrder >= 0) {
+              <span class="ring" [style.--win-order]="cell.winOrder"></span>
+            }
             <span class="hole">
               @if (cell.ghost) {
                 <span class="ghost"></span>
@@ -64,6 +67,7 @@
                   [class.disc--human]="cell.owner === 'human'"
                   [class.disc--bot]="cell.owner === 'bot'"
                   [class.disc--drop]="cell.dropping"
+                  [class.disc--dim]="cell.dimmed"
                   [style.--rows-above]="cell.rowsAbove"
                   [style.--drop-delay]="cell.dropDelayMs + 'ms'"
                 ></span>
@@ -72,6 +76,16 @@
           </span>
         }
       </button>
+    }
+    @if (stroke(); as line) {
+      <span
+        class="stroke"
+        aria-hidden="true"
+        [style.--x]="line.x"
+        [style.--y]="line.y"
+        [style.--length]="line.length"
+        [style.--angle]="line.angleDeg + 'deg'"
+      ><span class="stroke-fill"></span></span>
     }
   </div>
 

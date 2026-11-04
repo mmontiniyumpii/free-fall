@@ -175,4 +175,14 @@ describe('App', () => {
       expect(app.button('Jugar de nuevo')).not.toBeNull();
     });
   });
+
+  it('perder: muestra al bot como ganador, la línea resaltada y la opción de jugar de nuevo', async () => {
+    const app = await start('bot_won');
+    await app.click('Empezar partida');
+
+    expect(app.title()).toBe('Ganó el bot');
+    expect(app.host.querySelectorAll('app-board .ring').length).toBe(4);
+    expect(app.host.querySelector('app-board .stroke')).not.toBeNull();
+    expect(app.button('Jugar de nuevo')).not.toBeNull();
+  });
 });

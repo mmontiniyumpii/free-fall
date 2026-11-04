@@ -274,4 +274,79 @@ describe('Board', () => {
     expect(host.querySelector('.board--offline')).not.toBeNull();
     expect(host.querySelector('.offline')?.textContent).toContain('Sin conexión con el bot');
   });
+
+  describe('fin de partida', () => {
+    /** Anillos como "fila:columna" en el orden de la línea. */
+    function rings(host: HTMLElement): string[] {
+      return Array.from(host.querySelectorAll<HTMLElement>('.ring'))
+        .map((ring) => {
+          const cell = ring.closest('.cell') as HTMLElement;
+          const column = (ring.closest('.column') as HTMLElement).dataset['column'];
+          return { order: Number(ring.style.getPropertyValue('--win-order')), key: `${cell.dataset['row']}:${column}` };
+        })
+        .sort((a, b) => a.order - b.order)
+        .map((ring) => ring.key);
+    }
+
+    function stroke(host: HTMLElement) {
+      const element = host.querySelector<HTMLElement>('.stroke');
+      if (!element) return null;
+      const value = (name: string) => Number.parseFloat(element.style.getPropertyValue(name));
+      return {
+        x: value('--x'),
+        y: value('--y'),
+        length: Number(value('--length').toFixed(3)),
+        angle: Math.round(value('--angle')),
+      };
+    }
+
+    it('marca con anillos las celdas de winning_cells, con la fila 0 abajo', () => {
+      const host = render(fakeState('won'));
+
+      expect(rings(host)).toEqual(['0:2', '1:3', '2:4', '3:5']);
+      // En el DOM, la celda (0,2) es la última de la columna 2.
+      const column2 = host.querySelectorAll('.column')[2].querySelectorAll('.cell');
+      expect(column2[column2.length - 1].querySelector('.ring')).not.toBeNull();
+    });
+
+    it('anima los anillos en el orden de la línea aunque winning_cells venga desordenado', () => {
+      const state = fakeState('won');
+      state.winning_cells = [[3, 5], [1, 3], [0, 2], [2, 4]];
+
+      expect(rings(render(state))).toEqual(['0:2', '1:3', '2:4', '3:5']);
+    });
+
+    it('atenúa todas las fichas que no son de la línea', () => {
+      const host = render(fakeState('won'));
+
+      // El tablero ganado tiene 11 fichas, 4 en la línea.
+      expect(host.querySelectorAll('.disc').length).toBe(11);
+      expect(host.querySelectorAll('.disc--dim').length).toBe(7);
+      expect(host.querySelector('.ring + .hole .disc--dim')).toBeNull();
+    });
+
+    it('el trazo de una diagonal ascendente sube hacia la derecha', () => {
+      // De (0,2) a (3,5): en pantalla, de la última fila hacia arriba a 45°.
+      expect(stroke(render(fakeState('won')))).toEqual({ x: 2.5, y: 6.5, length: 4.243, angle: -45 });
+    });
+
+    it('el trazo de una vertical sube desde la fila 0', () => {
+      expect(stroke(render(fakeState('bot_won')))).toEqual({ x: 6.5, y: 6.5, length: 3, angle: -90 });
+    });
+
+    it('el trazo de una horizontal es recto', () => {
+      const state = fakeState('won');
+      state.winning_cells = [[2, 1], [2, 2], [2, 3], [2, 4]];
+
+      expect(stroke(render(state))).toEqual({ x: 1.5, y: 4.5, length: 3, angle: 0 });
+    });
+
+    it('en empate no hay anillos, trazo ni fichas atenuadas', () => {
+      const host = render(fakeState('draw'));
+
+      expect(host.querySelector('.ring')).toBeNull();
+      expect(host.querySelector('.stroke')).toBeNull();
+      expect(host.querySelector('.disc--dim')).toBeNull();
+    });
+  });
 });

@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, input } from '@angular/co
 
 import { GameState } from '../game/game-state';
 import { landingRow } from '../game/landing-row';
+import { lineDirection, sortWinningCells } from '../game/winning-line';
 
 type Side = 'human' | 'bot';
 
@@ -103,7 +104,7 @@ export class Status {
       return {
         eyebrow: `Fin de la partida · ${moves} jugadas`,
         title: humanWon ? 'Ganaste' : 'Ganó el bot',
-        detail: humanWon ? 'Conectaste cuatro.' : 'El bot conectó cuatro.',
+        detail: `${humanWon ? 'Conectaste' : 'Conectó'} cuatro${describeLine(state)}.`,
         alert: false,
         warning: false,
         turn: null,
@@ -142,4 +143,18 @@ export class Status {
     }
     return { detail: 'Elegí una columna.', warning: false };
   }
+}
+
+/** " en diagonal, de la columna 3 a la 6", leído de winning_cells (columnas desde 1). */
+function describeLine(state: GameState): string {
+  if (state.winning_cells?.length !== 4) return '';
+  const line = sortWinningCells(state.winning_cells);
+  const direction = lineDirection(line);
+  const firstColumn = line[0][1] + 1;
+  const lastColumn = line[line.length - 1][1] + 1;
+  const where =
+    direction === 'vertical'
+      ? `en la columna ${firstColumn}`
+      : `de la columna ${firstColumn} a la ${lastColumn}`;
+  return ` en ${direction}, ${where}`;
 }

@@ -88,6 +88,7 @@
 
 /* Tablero */
 .grid {
+  position: relative;
   display: flex;
   padding: var(--board-pad);
   background: var(--color-board);
@@ -137,6 +138,7 @@
 }
 
 .cell {
+  position: relative;
   display: block;
   width: var(--cell-size);
   height: var(--cell-size);
@@ -181,6 +183,47 @@
   --drop-from: calc(-1 * (var(--rows-above) + 1.15) * var(--cell-size));
   z-index: 1;
   animation: drop calc(220ms + 22ms * var(--rows-above)) linear var(--drop-delay, 0ms) both;
+}
+
+/* Fin de partida (diseño): las fichas que no ganan bajan al 30 % en 320 ms,
+   los anillos aparecen cada 110 ms en el orden de la línea y a los 760 ms un
+   trazo blanco une los centros en 380 ms. */
+.disc--dim {
+  opacity: 0.3;
+  transition: opacity 320ms var(--ease-standard) 280ms;
+}
+
+.ring {
+  position: absolute;
+  inset: 2px;
+  z-index: 2;
+  border: 3px solid var(--color-accent);
+  border-radius: 50%;
+  box-sizing: border-box;
+  pointer-events: none;
+  animation: ring-in 260ms var(--ease-standard) calc(300ms + var(--win-order) * 110ms) both;
+}
+
+.stroke {
+  position: absolute;
+  left: calc(var(--board-pad) + var(--x) * var(--cell-size));
+  top: calc(var(--board-pad) + var(--y) * var(--cell-size) - 2.5px);
+  z-index: 3;
+  width: calc(var(--length) * var(--cell-size));
+  height: 5px;
+  transform: rotate(var(--angle));
+  transform-origin: 0 50%;
+  pointer-events: none;
+}
+
+.stroke-fill {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: #ffffff;
+  box-shadow: 0 0 0 2px var(--color-board);
+  transform-origin: 0 50%;
+  animation: stroke-in 380ms var(--ease-standard) 760ms both;
 }
 
 /* Bot: disco azul con el centro hueco; se distingue por forma, no solo por color. */
@@ -249,6 +292,19 @@
   }
   100% {
     transform: translateY(0);
+  }
+}
+
+@keyframes ring-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+}
+
+@keyframes stroke-in {
+  from {
+    transform: scaleX(0);
   }
 }
 

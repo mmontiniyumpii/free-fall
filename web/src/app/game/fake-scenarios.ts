@@ -8,6 +8,7 @@ export type FakeScenario =
   | 'playing'
   | 'fixture'
   | 'won'
+  | 'bot_won'
   | 'draw'
   | 'illegal_move'
   | 'offline'
@@ -17,6 +18,7 @@ export const FAKE_SCENARIOS: readonly FakeScenario[] = [
   'playing',
   'fixture',
   'won',
+  'bot_won',
   'draw',
   'illegal_move',
   'offline',
@@ -97,6 +99,36 @@ const won: GameState = {
   last_bot: { column: 5, depth: 6, nodes: 21004, elapsed_ms: 38 },
 };
 
+// Gana el bot con cuatro en vertical en la columna 6: el humano juega 0 y 1,
+// el bot siempre 6. El humano no llega a cuatro.
+const botWon: GameState = {
+  id: 'l_0004',
+  board: [
+    [1, 1, 0, 0, 0, 0, 2, 0],
+    [1, 1, 0, 0, 0, 0, 2, 0],
+    [0, 0, 0, 0, 0, 0, 2, 0],
+    [0, 0, 0, 0, 0, 0, 2, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+  ],
+  to_move: null,
+  legal_moves: [],
+  status: 'won',
+  winner: 2,
+  winning_cells: [
+    [0, 6],
+    [1, 6],
+    [2, 6],
+    [3, 6],
+  ],
+  history: [0, 6, 1, 6, 0, 6, 1, 6],
+  human: 1,
+  bot: 2,
+  difficulty: 'hard',
+  last_bot: { column: 6, depth: 12, nodes: 301877, elapsed_ms: 1180 },
+};
+
 // Tablero lleno sin cuatro en línea. El history reproduce el tablero alternando
 // 1 y 2 (verificado fuera de la app al armar el dato).
 const draw: GameState = {
@@ -128,6 +160,7 @@ const draw: GameState = {
 const STATES: Record<Exclude<FakeScenario, NewGameScenario>, GameState> = {
   fixture: midGame,
   won,
+  bot_won: botWon,
   draw,
   // Mismo tablero que `fixture`; la diferencia está en FakeGameApiService.move.
   illegal_move: midGame,
