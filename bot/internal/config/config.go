@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"log/slog"
+	"net/url"
 	"strconv"
 	"time"
 )
@@ -29,6 +30,16 @@ func Load(getenv func(string) string) (Config, error) {
 		ArbiterURL: getenv("ARBITRO_URL"),
 		TeamToken:  getenv("TEAM_TOKEN"),
 		Port:       "3000",
+	}
+
+	if cfg.ArbiterURL != "" {
+		u, err := url.Parse(cfg.ArbiterURL)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return Config{}, fmt.Errorf("ARBITRO_URL=%q: debe ser una URL http(s), por ejemplo http://localhost:4000", cfg.ArbiterURL)
+		}
+		if cfg.TeamToken == "" {
+			return Config{}, fmt.Errorf("TEAM_TOKEN: es obligatorio cuando ARBITRO_URL está definido")
+		}
 	}
 
 	thinkMS, err := intVar(getenv, "THINK_MS", 1500, 1, int(arbiterLimit/time.Millisecond)-1)

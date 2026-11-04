@@ -69,10 +69,16 @@ func TestLoadInvalid(t *testing.T) {
 		{"poll wait above arbiter max", "POLL_WAIT", "26"},
 		{"tt not a bool", "TT_ENABLED", "yes please"},
 		{"mock latency negative", "MOCK_LATENCY_MS", "-5"},
+		{"arbiter url without scheme", "ARBITRO_URL", "localhost:4000"},
+		{"arbiter url with other scheme", "ARBITRO_URL", "ftp://arbitro"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := Load(env(map[string]string{tc.key: tc.value}))
+			vars := map[string]string{tc.key: tc.value}
+			if tc.key == "ARBITRO_URL" {
+				vars["TEAM_TOKEN"] = "tok" // para que el único error posible sea la URL
+			}
+			_, err := Load(env(vars))
 			if err == nil {
 				t.Fatalf("Load(%s=%q) = nil error, want error", tc.key, tc.value)
 			}
@@ -80,6 +86,18 @@ func TestLoadInvalid(t *testing.T) {
 				t.Errorf("error %q does not name the variable %s", err, tc.key)
 			}
 		})
+	}
+}
+
+// Con árbitro configurado y sin token, el bot arrancaría y recibiría 401 para siempre: mejor no arrancar.
+func TestArbiterRequiresToken(t *testing.T) {
+	_, err := Load(env(map[string]string{"ARBITRO_URL": "http://localhost:4000"}))
+	if err == nil || !strings.Contains(err.Error(), "TEAM_TOKEN") {
+		t.Errorf("err = %v, want error que nombre TEAM_TOKEN", err)
+	}
+	// Sin árbitro (solo API local), el token no hace falta.
+	if _, err := Load(env(nil)); err != nil {
+		t.Errorf("sin ARBITRO_URL: err = %v, want nil", err)
 	}
 }
 

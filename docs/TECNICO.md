@@ -47,3 +47,17 @@
 **Qué cambia.** `FindWin` devuelve `[]Pos`, con `type Pos struct{ Row, Col int }` agregado en `internal/game/types.go`. Devuelve exactamente 4 posiciones que incluyen la ficha jugada, ordenadas de abajo hacia arriba. `internal/api` las convierte a `winning_cells: [[fila, columna], ...]`.
 
 **Por qué.** En el mismo plan, `Cell` es el *contenido* de una casilla (0, 1 o 2), no una posición. Un `[]Cell` no puede representar la línea ganadora.
+
+### D3 — Firma de `RunLoop` y validación de la configuración del árbitro (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_BACKEND.md` §4: `RunLoop(ctx, client, choose, logger)`.
+
+**Qué cambia.**
+
+- La firma pasa a `RunLoop(ctx, client, choose, logger, LoopOptions{Wait, Connected})`.
+  - `Wait` es `POLL_WAIT`.
+  - `Connected` es un `*atomic.Bool` que refleja si la última llamada al árbitro funcionó, y lo lee `GET /health` para `arbiter_connected`.
+- `choose` es un `ChooseFunc func(Turn) Choice`, donde `Choice{Column, Depth, Nodes}` lleva los datos que pide el log por turno.
+- `internal/config` rechaza arrancar si `ARBITRO_URL` está definida y no es una URL http(s), o si falta `TEAM_TOKEN`.
+
+**Por qué.** Sin `Wait` no se puede configurar el long poll. Sin `Connected`, `/health` no puede informar el estado real de la conexión. Arrancar sin token deja al bot recibiendo `401` en silencio hasta perder por ausencia.
