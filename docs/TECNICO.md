@@ -101,3 +101,102 @@
 - El `ms` máximo fue 2 069 y ninguna jugada superó el límite de 2 100.
 - Hubo 0 logs `ERROR`, 0 `WARN` y 0 `DATA RACE`.
 - Con apertura vacía, dos motores deterministas repiten la misma partida (las partidas 6 y 8 fueron idénticas). La apertura al azar evita que eso pase en el resto.
+
+### D6 — Aplicación web: diseño de pantallas como referencia, ajustado a las bases (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_FRONTEND.md` §2 pide iconos Phosphor. El boceto de §3 pone "quién abre" y "nueva partida" en una barra superior. §1 deja el responsive como opcional y no incluye dificultad, color ni tema.
+
+**Qué cambia.**
+
+- La referencia visual es `docs/diseno/pantallas.html`, generado con Claude Design: escritorio y teléfono, ocho estados, notas de medidas y animaciones. La configuración de la partida va en un panel lateral, como en el diseño.
+- Donde el diseño no alcanzaba para las bases, ganan las bases:
+  - **Laptop.** El diseño fija la celda en 80 px (unos 800 px de alto). La celda se escala con el alto y el ancho de la ventana; en 1366×657 útiles mide 63 px y el tablero entra completo.
+  - **Sin errores ni pedidos externos.** El diseño carga Lucide desde unpkg y las fuentes desde Google. Las fuentes (Geist, Geist Mono, Archivo, OFL) se sirven desde `web/public/fonts/` y la docena de iconos son SVG de Lucide (ISC) copiados en línea. No se usa Phosphor: no hace falta ninguna dependencia de iconos.
+  - **Ningún control que no funcione.** Deshacer queda afuera hasta que exista `POST /local/games/{id}/undo`. El selector de color y el tema oscuro (opcionales) no se implementaron; los tokens del tema oscuro quedan en `styles.css`.
+  - **Textos fieles al motor.** Las descripciones de dificultad del diseño ("se equivoca seguido") no corresponden a lo que hace el bot; se reescribieron según D1. Por defecto: Difícil, como el torneo.
+- **Teléfono.** El toque en dos pasos (previsualizar y soltar) se activa por capacidad del dispositivo (`hover: none`), no por el ancho, para que una ventana angosta en la computadora siga soltando con un clic.
+
+**Error de la IA detectado.** El prototipo del diseño dibuja la fila 0 arriba e implementa sus propias reglas (`findLine`, `botMove`). No se portó nada de eso; un test del tablero falla si se invierten las filas.
+
+### D7 — Gravedad solo para dibujar y dueño de cada jugada leído del tablero (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_FRONTEND.md` §1 y §5: el frontend no implementa reglas y no infiere nada que no venga del backend (ganador, línea, columnas legales).
+
+**Qué cambia.** Hay una excepción acotada: `landingRow(board, column)`, una función pura que devuelve la fila vacía más baja de una columna. Se usa solo para dibujar:
+
+- la vista previa y el contorno de dónde cae la ficha, y el texto "cae en la fila N";
+- tu ficha mientras el bot piensa (ver D9);
+- los pasos de la reproducción de partidas (ver D10);
+- la API falsa (ver D8).
+
+Legalidad (`legal_moves`), ganador, línea ganadora y empate siguen saliendo siempre del backend o del árbitro.
+
+El historial necesita saber quién hizo cada jugada, y `history` solo trae columnas. En vez de suponer turnos alternados, el dueño se lee del `board` del backend: la jugada en la columna `c` que es la `k`-ésima en esa columna corresponde a `board[k][c]`.
+
+**Por qué.** Las bases califican "feedback inmediato". Sin esto, tu ficha aparecería recién cuando responde el bot, hasta ~1,8 s después.
+
+**Cómo se verifica.** Tests de `landingRow` y de `moveHistory`. El test del historial falla si se reemplaza la lectura del tablero por turnos alternados.
+
+**Quién lo decidió.** Matias Montini, con el límite explícito de "solo para dibujar".
+
+### D8 — API falsa con escenarios elegibles por URL (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_FRONTEND.md` §5: mientras la API no existe, un servicio falso que devuelve un `GameState` fijo.
+
+**Qué cambia.**
+
+- La app usa la API real por defecto. El servicio falso queda en el código y se activa solo con `?scenario=`:
+  - `playing`
+  - `fixture`
+  - `won`
+  - `bot_won`
+  - `draw`
+  - `illegal_move`
+  - `offline`, donde la primera jugada se aplica pero la respuesta se pierde
+  - `lost`, que responde 404
+- El bot falso tarda 1 500 ms, como el motor. Responde en un orden fijo de columnas (3, 4, 2, 5, 1, 6, 0, 7) y no detecta ganador.
+
+**Por qué.** Hay estados que no se pueden provocar a mano: sin conexión, partida perdida, empate. Se necesitan para la demo, para las capturas del manual y para los tests.
+
+### D9 — Tu ficha cae antes de la respuesta del bot (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_FRONTEND.md` §6, paso 6: "animación de caída simple".
+
+**Qué cambia.**
+
+- La caída sigue al diseño: 220 ms + 22 ms por fila y un rebote del 6 %.
+- Tu ficha se dibuja cayendo apenas hacés clic, como jugada pendiente y sin tocar el `GameState`. La del bot cae cuando llega la respuesta.
+- Las fichas nuevas se detectan comparando el tablero anterior con el nuevo, sin reglas.
+- Un salto de más de 2 fichas (por ejemplo, al reproducir una partida) se muestra sin animar.
+
+**Error detectado contra el backend real.** Con el fake (600 ms de demora) todo se veía bien. Contra el bot real, que respondía en milisegundos, la respuesta llegaba antes de que terminara la caída y la ficha aparecía de golpe. Lo detectó una medición con Playwright; se arregló manteniendo la animación en curso y se agregó un test que reproduce el caso.
+
+**Reintento sin conexión.** Antes de reenviar una jugada, se consulta la partida y solo se reenvía si `history` no creció. Así una respuesta perdida nunca juega dos veces; hay tests para el caso.
+
+### D10 — Reproducción de partidas del torneo a través de un proxy (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_FRONTEND.md` §1, opcional 4: reproducir una partida desde `GET /api/games/{id}`, que es público en el árbitro.
+
+**Qué cambia.**
+
+- El navegador no llama al árbitro directo: el mock no habilita CORS (el preflight responde 405) y no sabemos si el árbitro real lo hará.
+- La app pide `/arbitro/api/games/{id}` a su propio servidor de desarrollo, y `web/proxy.conf.mjs` lo reenvía a `ARBITRO_URL`, la misma variable del bot. Sin esa variable, apunta al mock en `http://localhost:4000`.
+- **Límite:** el proxy solo existe en el servidor de desarrollo (`npm run dev:web` o `npm --prefix web run start:lan`).
+- El tipo del registro acepta `id` y `team_id` para el equipo. El schema `Team` del OpenAPI dice `id` y su ejemplo dice `team_id`.
+
+**Cómo se verifica.**
+
+- En los tests, el tablero del último paso tiene que ser igual al `board` del registro, con el ejemplo del OpenAPI y con una partida real de self-play guardada en `web/src/app/replay/testdata/`. Esos tests fallan si se invierten las filas.
+- Contra el mock, el tablero final del navegador coincidió celda por celda con el `board` del árbitro.
+
+### D11 — Pruebas del front en el comando único y presupuesto de estilos (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_FRONTEND.md` §7: el `npm test` de la raíz también corre los tests del front.
+
+**Qué cambia.**
+
+- `npm test` corre `test:bot`, que son los tests de Go con `-race` y `covercheck`, y después `test:web`, que son los tests de Angular (Vitest).
+- Termina con código distinto de 0 si cualquiera de los dos falla.
+- `npm install` en la raíz instala también las dependencias de `web/`, mediante `postinstall`.
+- El front tiene 152 tests y no reporta cobertura: medirla necesita una dependencia nueva (`@vitest/coverage-v8`) que no se agregó. El umbral del 70 % de las bases aplica a reglas y algoritmo, que están en Go.
+- El presupuesto de estilos por componente de `web/angular.json` pasa de 4 a 6 kB de advertencia y de 8 a 10 kB de error. `board.css`, con las animaciones del diseño, pesa 4,7 kB; partirlo solo para esquivar el límite hubiera ocultado su peso real.
