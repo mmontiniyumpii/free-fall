@@ -17,5 +17,6 @@
   "history": [3, 4, 3, 4, 3, 3],
   "human": 1,
   "bot": 2,
+  "difficulty": "hard",
   "last_bot": { "column": 3, "depth": 9, "nodes": 412380, "elapsed_ms": 1290 }
 }

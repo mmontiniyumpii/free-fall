@@ -23,10 +23,12 @@ Para que el front sepa si el bot está vivo antes de mostrar el tablero.
 ### `POST /local/games` — nueva partida
 
 ```json
-Request   { "first": "human" }          // "human" | "bot"
+Request   { "first": "human", "difficulty": "hard" }
 Response  201 GameState
 ```
 
+- `first`: `"human"` | `"bot"`. Obligatorio.
+- `difficulty`: `"easy"` | `"medium"` | `"hard"`. Opcional, por defecto `"hard"`. No cambia el algoritmo: limita la profundidad máxima de búsqueda (`easy` = 2, `medium` = 6, `hard` = solo límite de tiempo, igual que en el torneo). Se guarda en la partida y se devuelve en `GameState`.
 - `first: "human"` → `human = 1`, `bot = 2`, tablero vacío, `to_move = 1`.
 - `first: "bot"` → `human = 2`, `bot = 1`, y la respuesta **ya incluye la jugada de apertura del bot**: tablero con una ficha, `history` de longitud 1, `last_bot` informado, `to_move = 2`.
 
@@ -46,7 +48,7 @@ Errores:
 | Código | Cuerpo | Cuándo |
 |---|---|---|
 | 400 | `{ "ok": false, "error": "illegal_move", "message": "La columna 3 está llena." }` | Columna llena o fuera de rango |
-| 400 | `{ "ok": false, "error": "validation", "message": "..." }` | Body inválido |
+| 400 | `{ "ok": false, "error": "validation", "message": "..." }` | Body inválido (también `first` o `difficulty` fuera del enum en `POST /local/games`) |
 | 404 | `{ "ok": false, "error": "unknown_game", "message": "..." }` | `id` inexistente |
 | 409 | `{ "ok": false, "error": "game_over", "message": "..." }` | La partida ya terminó |
 | 409 | `{ "ok": false, "error": "not_your_turn", "message": "..." }` | No es el turno del humano (no debería pasar; defensa) |
@@ -85,6 +87,7 @@ Deshace la última jugada del humano **y** la respuesta del bot. Responde `200 G
   "history": [3, 4, 3, 4, 3, 3],
   "human": 1,
   "bot": 2,
+  "difficulty": "hard",
   "last_bot": { "column": 3, "depth": 9, "nodes": 412380, "elapsed_ms": 1290 }
 }
 ```
@@ -100,7 +103,8 @@ Deshace la última jugada del humano **y** la respuesta del bot. Responde `200 G
 | `winning_cells` | `[fila, columna][] \| null` | Exactamente 4 celdas cuando `status = "won"`; `null` en otro caso |
 | `history` | `number[]` | Columnas jugadas desde el inicio, en orden (misma semántica que `moves` del árbitro) |
 | `human` / `bot` | `1 \| 2` | Qué número tiene cada uno en esta partida |
-| `last_bot` | objeto \| null | Última jugada del bot: columna, profundidad alcanzada, nodos visitados, ms de cómputo. `null` si el bot aún no jugó. |
+| `difficulty` | `"easy" \| "medium" \| "hard"` | Dificultad con la que se creó la partida |
+| `last_bot` | objeto \| null | Última jugada del bot: columna, profundidad alcanzada, nodos visitados, ms de cómputo. `null` si el bot aún no jugó. En `easy`/`medium` la profundidad reportada es la alcanzada, nunca mayor que el límite. |
 
 Para saber si le toca al humano: `status === "playing" && to_move === human`.
 
@@ -109,8 +113,8 @@ Para saber si le toca al humano: `status === "playing" && to_move === human`.
 ```json
 { "id": "l_0002", "board": "...", "to_move": null, "legal_moves": [],
   "status": "won", "winner": 1, "winning_cells": [[0, 2], [1, 3], [2, 4], [3, 5]],
-  "history": [2, 3, 3, 4, 5, 4, 4, 5, 6, 5, 5], "human": 1, "bot": 2,
-  "last_bot": { "column": 5, "depth": 10, "nodes": 980112, "elapsed_ms": 1402 } }
+  "history": [2, 3, 3, 4, 5, 4, 4, 5, 6, 5, 5], "human": 1, "bot": 2, "difficulty": "medium",
+  "last_bot": { "column": 5, "depth": 6, "nodes": 21004, "elapsed_ms": 38 } }
 ```
 
 ### Ejemplo de empate
@@ -122,5 +126,6 @@ Para saber si le toca al humano: `status === "playing" && to_move === human`.
 ## Reglas para ambos lados
 
 - El backend garantiza que `legal_moves`, `status`, `winner` y `winning_cells` son consistentes con `board`; hay un test que compara la respuesta de `POST /local/games` con `docs/fixtures/game-state.example.json` (misma forma y tipos).
+- El backend garantiza que el loop del árbitro juega siempre sin límite de profundidad (`hard`): la dificultad es solo de la API local.
 - El frontend no calcula legalidad ni victoria. Deshabilita columnas que no estén en `legal_moves`, resalta `winning_cells`, y muestra `last_bot` como información.
 - Campos nuevos que el backend agregue en el futuro no rompen al front (ignorar desconocidos). Campos existentes no cambian de nombre ni de tipo sin cambiar este documento.
