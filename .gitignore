@@ -1,0 +1,16 @@
+# Secretos: solo se versiona el ejemplo
+.env
+.env.*
+!.env.example
+
+# Go
+bin/
+coverage.out
+
+# Angular / Node
+node_modules/
+dist/
+web/.angular/
+
+# Sistema
+.DS_Store

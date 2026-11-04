@@ -1,0 +1,260 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Árbitro — Challenge Cuatro en línea 8×7",
+    "version": "0.9.0",
+    "summary": "API que los bots de cada equipo usan para jugar en el torneo.",
+    "description": "Versión preliminar entregada con las bases (3 de noviembre de 2026). Puede tener cambios menores; la versión definitiva se publica al inicio de la sesión del jueves 5 de noviembre junto con la URL del árbitro.\n\n**Modelo de comunicación.** El árbitro es público y los bots son clientes. El bot pregunta por su turno con `GET /api/next` (long polling: el servidor retiene la conexión mientras no haya turno y responde de inmediato cuando lo hay) y envía su jugada con `POST /api/move`.\n\n**Tiempo.** `deadline_ms` (3,000 ms) se cuenta desde `served_at`, el instante en que el árbitro entregó el turno al bot. Si el bot no recoge su turno en 30 s desde que quedó disponible, pierde la partida por ausencia.\n\n**Tablero.** 8 columnas (0–7) × 7 filas (0–6). `board[fila][columna]`; la fila 0 es la de abajo. 0 = vacío, 1 = jugador que abrió la partida, 2 = el otro.\n\n**Autenticación.** Todas las rutas bajo `/api` salvo `/api/games/{game_id}` y `/api/standings` requieren `Authorization: Bearer <token-del-equipo>`. El token se entrega a cada equipo el día de la sesión.",
+    "contact": { "name": "Edson Lemus" }
+  },
+  "servers": [
+    { "url": "https://{host}", "description": "Subdominio de Yompi, se anuncia al inicio de la sesión.", "variables": { "host": { "default": "arbitro.por-definir" } } }
+  ],
+  "tags": [
+    { "name": "Bot", "description": "Ciclo de juego del bot." },
+    { "name": "Equipo", "description": "Información y entrega del equipo." },
+    { "name": "Público", "description": "Sin autenticación." }
+  ],
+  "security": [{ "teamToken": [] }],
+  "paths": {
+    "/api/next": {
+      "get": {
+        "tags": ["Bot"],
+        "operationId": "nextTurn",
+        "summary": "Espera y devuelve el turno pendiente del equipo",
+        "description": "Long polling. Si hay un turno pendiente responde de inmediato con `status: turn`. Si no lo hay, retiene la conexión hasta `wait` segundos y, si en ese lapso aparece un turno, lo responde en ese instante; si no, responde `status: idle` y el bot debe volver a llamar. Si el equipo tiene más de un turno pendiente (varias partidas), devuelve el más antiguo.",
+        "parameters": [
+          { "name": "wait", "in": "query", "description": "Segundos máximos que el servidor retiene la conexión. Máximo 25.", "schema": { "type": "integer", "minimum": 0, "maximum": 25, "default": 20 } }
+        ],
+        "responses": {
+          "200": {
+            "description": "Turno pendiente o nada que hacer.",
+            "content": { "application/json": { "schema": { "oneOf": [ { "$ref": "#/components/schemas/Turn" }, { "$ref": "#/components/schemas/Idle" } ], "discriminator": { "propertyName": "status" } },
+              "examples": {
+                "turn": { "summary": "Le toca al equipo", "value": { "status": "turn", "game_id": "g_7f3a", "match_id": "m_12", "kind": "league", "you": 2, "opponent": "Los Recursivos", "turn": 9, "board": [[0,0,1,2,1,0,0,0],[0,0,2,1,0,0,0,0],[0,0,0,2,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0]], "moves": [3,2,3,2,4,3,2,3], "last_move": { "by": 1, "column": 3 }, "legal_moves": [0,1,2,3,4,5,6,7], "deadline_ms": 3000, "served_at": "2026-11-05T15:04:05.123Z" } },
+                "idle": { "summary": "Sin turno pendiente", "value": { "status": "idle" } }
+              } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/move": {
+      "post": {
+        "tags": ["Bot"],
+        "operationId": "submitMove",
+        "summary": "Envía la jugada de un turno pendiente",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MoveRequest" }, "example": { "game_id": "g_7f3a", "column": 4 } } } },
+        "responses": {
+          "200": {
+            "description": "Jugada aceptada.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MoveAccepted" },
+              "examples": {
+                "playing": { "value": { "ok": true, "state": "playing", "turn": 10 } },
+                "won": { "value": { "ok": true, "state": "won", "turn": 10, "winning_cells": [[0,2],[1,3],[2,4],[3,5]] } },
+                "draw": { "value": { "ok": true, "state": "draw", "turn": 56 } }
+              } } }
+          },
+          "400": {
+            "description": "Jugada rechazada. La partida se pierde.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" },
+              "examples": {
+                "illegal": { "value": { "ok": false, "error": "illegal_move", "message": "La columna 3 está llena." } },
+                "timeout": { "value": { "ok": false, "error": "timeout", "message": "La jugada llegó 412 ms después del límite." } }
+              } } }
+          },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "409": {
+            "description": "No hay turno pendiente para esa partida (ya se jugó, terminó o no es del equipo). No penaliza.",
+            "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "ok": false, "error": "not_your_turn", "message": "La partida g_7f3a no tiene un turno pendiente para tu equipo." } } }
+          }
+        }
+      }
+    },
+    "/api/practice": {
+      "post": {
+        "tags": ["Bot"],
+        "operationId": "createPractice",
+        "summary": "Crea una partida de práctica contra un bot de la casa",
+        "description": "Disponible desde que el árbitro se publica hasta el congelamiento. La partida aparece en `/api/next` como cualquier otra. No cuenta para la liga.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/PracticeRequest" }, "example": { "opponent": "casa-basico", "first": 1 } } } },
+        "responses": {
+          "201": { "description": "Partida creada.", "content": { "application/json": { "schema": { "type": "object", "required": ["game_id"], "properties": { "game_id": { "type": "string" }, "you": { "type": "integer", "enum": [1, 2] } } }, "example": { "game_id": "g_p_01", "you": 1 } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "423": { "description": "Prácticas cerradas (después del congelamiento).", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "ok": false, "error": "practice_closed", "message": "Las prácticas cerraron a las 09:45." } } } }
+        }
+      }
+    },
+    "/api/me": {
+      "get": {
+        "tags": ["Equipo"],
+        "operationId": "getMe",
+        "summary": "Datos del equipo, posición y turnos pendientes",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Me" }, "example": { "team": { "id": "eq3", "name": "Los Recursivos", "members": ["Mauricio Estuardo Batres Montejo", "José Danilo Alvarado Zamora", "Luis Fernando Rivas Colaj", "Matias Javier Montini"] }, "standing": { "position": 2, "played": 6, "won": 4, "drawn": 1, "lost": 1, "points": 13 }, "pending_turns": ["g_7f3a"], "submission": { "repo_url": "https://github.com/equipo3/cuatro-en-linea", "commit": "a1b2c3d", "registered_at": "2026-11-05T15:40:00Z" } } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" }
+        }
+      }
+    },
+    "/api/me/submission": {
+      "put": {
+        "tags": ["Equipo"],
+        "operationId": "registerSubmission",
+        "summary": "Registra la entrega: URL del repositorio y hash del commit final",
+        "description": "Se puede actualizar hasta la hora de congelamiento. El último registro es el que se evalúa.",
+        "requestBody": { "required": true, "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Submission" }, "example": { "repo_url": "https://github.com/equipo3/cuatro-en-linea", "commit": "a1b2c3d4e5f6" } } } },
+        "responses": {
+          "200": { "description": "Entrega registrada.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/SubmissionRecord" } } } },
+          "401": { "$ref": "#/components/responses/Unauthorized" },
+          "423": { "description": "Entregas cerradas.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" } } } }
+        }
+      }
+    },
+    "/api/games/{game_id}": {
+      "get": {
+        "tags": ["Público"],
+        "security": [],
+        "operationId": "getGame",
+        "summary": "Registro completo de una partida",
+        "description": "Público. Sirve para reproducir partidas en la aplicación web de cada equipo.",
+        "parameters": [ { "name": "game_id", "in": "path", "required": true, "schema": { "type": "string" } } ],
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Game" }, "example": { "game_id": "g_7f3a", "match_id": "m_12", "kind": "league", "status": "finished", "players": { "1": { "team_id": "eq1", "name": "Equipo 1" }, "2": { "team_id": "eq3", "name": "Los Recursivos" } }, "moves": [ { "turn": 1, "by": 1, "column": 3, "ms": 812 }, { "turn": 2, "by": 2, "column": 2, "ms": 1490 } ], "board": [[0,0,2,1,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0],[0,0,0,0,0,0,0,0]], "result": { "winner": 2, "reason": "connect4", "winning_cells": [[0,2],[1,3],[2,4],[3,5]] }, "started_at": "2026-11-05T15:50:00Z", "finished_at": "2026-11-05T15:51:12Z" } } } },
+          "404": { "description": "No existe." }
+        }
+      }
+    },
+    "/api/standings": {
+      "get": {
+        "tags": ["Público"],
+        "security": [],
+        "operationId": "getStandings",
+        "summary": "Tabla de posiciones de la liga",
+        "responses": {
+          "200": { "description": "OK", "content": { "application/json": { "schema": { "type": "object", "properties": { "phase": { "type": "string", "enum": ["practice", "league", "playoffs", "finished"] }, "standings": { "type": "array", "items": { "$ref": "#/components/schemas/Standing" } } } } } } }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "teamToken": { "type": "http", "scheme": "bearer", "description": "Token fijo por equipo, entregado el día de la sesión. Léanlo de una variable de entorno; no va en el repositorio." }
+    },
+    "responses": {
+      "Unauthorized": { "description": "Token ausente o inválido.", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Error" }, "example": { "ok": false, "error": "unauthorized", "message": "Token inválido." } } } }
+    },
+    "schemas": {
+      "Board": {
+        "type": "array", "description": "7 filas × 8 columnas. board[fila][columna]; la fila 0 es la de abajo. 0 vacío, 1 jugador 1, 2 jugador 2.",
+        "minItems": 7, "maxItems": 7,
+        "items": { "type": "array", "minItems": 8, "maxItems": 8, "items": { "type": "integer", "enum": [0, 1, 2] } }
+      },
+      "Column": { "type": "integer", "minimum": 0, "maximum": 7, "description": "Índice de columna, 0 a 7." },
+      "Player": { "type": "integer", "enum": [1, 2], "description": "1 abrió la partida; 2 respondió." },
+      "Idle": {
+        "type": "object", "required": ["status"],
+        "properties": { "status": { "type": "string", "const": "idle" } }
+      },
+      "Turn": {
+        "type": "object",
+        "required": ["status", "game_id", "kind", "you", "opponent", "turn", "board", "moves", "legal_moves", "deadline_ms", "served_at"],
+        "properties": {
+          "status": { "type": "string", "const": "turn" },
+          "game_id": { "type": "string" },
+          "match_id": { "type": ["string", "null"], "description": "Enfrentamiento de liga al que pertenece la partida; null en prácticas." },
+          "kind": { "type": "string", "enum": ["practice", "friendly", "league", "third_place", "final"] },
+          "you": { "$ref": "#/components/schemas/Player" },
+          "opponent": { "type": "string", "description": "Nombre del equipo rival o del bot de la casa." },
+          "turn": { "type": "integer", "minimum": 1, "maximum": 56, "description": "Número de la jugada que sigue, desde 1." },
+          "board": { "$ref": "#/components/schemas/Board" },
+          "moves": { "type": "array", "items": { "$ref": "#/components/schemas/Column" }, "description": "Columnas jugadas desde el inicio, en orden. Permite reconstruir el tablero." },
+          "last_move": { "type": ["object", "null"], "description": "Última jugada del rival; null en el primer turno.", "properties": { "by": { "$ref": "#/components/schemas/Player" }, "column": { "$ref": "#/components/schemas/Column" } } },
+          "legal_moves": { "type": "array", "items": { "$ref": "#/components/schemas/Column" }, "description": "Columnas que aún no están llenas." },
+          "deadline_ms": { "type": "integer", "description": "Milisegundos disponibles para responder, contados desde served_at." },
+          "served_at": { "type": "string", "format": "date-time", "description": "Instante en que el árbitro entregó este turno al bot. Desde aquí corre el reloj." }
+        }
+      },
+      "MoveRequest": {
+        "type": "object", "required": ["game_id", "column"],
+        "properties": { "game_id": { "type": "string" }, "column": { "$ref": "#/components/schemas/Column" } }
+      },
+      "MoveAccepted": {
+        "type": "object", "required": ["ok", "state"],
+        "properties": {
+          "ok": { "type": "boolean", "const": true },
+          "state": { "type": "string", "enum": ["playing", "won", "draw"], "description": "Estado de la partida para el equipo después de su jugada." },
+          "turn": { "type": "integer", "description": "Número de la siguiente jugada, o de la última si la partida terminó." },
+          "winning_cells": { "type": "array", "description": "Solo cuando state = won. Celdas [fila, columna] de la línea ganadora.", "items": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 } }
+        }
+      },
+      "Error": {
+        "type": "object", "required": ["ok", "error"],
+        "properties": {
+          "ok": { "type": "boolean", "const": false },
+          "error": { "type": "string", "enum": ["illegal_move", "timeout", "not_your_turn", "unauthorized", "practice_closed", "submissions_closed", "unknown_game", "validation"] },
+          "message": { "type": "string" }
+        }
+      },
+      "PracticeRequest": {
+        "type": "object", "required": ["opponent"],
+        "properties": {
+          "opponent": { "type": "string", "enum": ["casa-aleatorio", "casa-basico"], "description": "casa-aleatorio juega al azar; casa-basico gana y bloquea cuatros inmediatos." },
+          "first": { "$ref": "#/components/schemas/Player", "description": "Quién abre: 1 el equipo, 2 el bot de la casa. Por defecto 1." }
+        }
+      },
+      "Submission": {
+        "type": "object", "required": ["repo_url", "commit"],
+        "properties": {
+          "repo_url": { "type": "string", "format": "uri", "description": "Repositorio público en GitHub o Bitbucket." },
+          "commit": { "type": "string", "minLength": 7, "maxLength": 40, "description": "Hash del commit final (corto o completo)." }
+        }
+      },
+      "SubmissionRecord": {
+        "allOf": [ { "$ref": "#/components/schemas/Submission" }, { "type": "object", "properties": { "registered_at": { "type": "string", "format": "date-time" } } } ]
+      },
+      "Team": {
+        "type": "object", "required": ["id", "name"],
+        "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "members": { "type": "array", "items": { "type": "string" } } }
+      },
+      "Standing": {
+        "type": "object",
+        "properties": {
+          "position": { "type": "integer" }, "team": { "$ref": "#/components/schemas/Team" },
+          "played": { "type": "integer" }, "won": { "type": "integer" }, "drawn": { "type": "integer" }, "lost": { "type": "integer" }, "points": { "type": "integer" }
+        }
+      },
+      "Me": {
+        "type": "object", "required": ["team"],
+        "properties": {
+          "team": { "$ref": "#/components/schemas/Team" },
+          "standing": { "type": "object", "properties": { "position": { "type": "integer" }, "played": { "type": "integer" }, "won": { "type": "integer" }, "drawn": { "type": "integer" }, "lost": { "type": "integer" }, "points": { "type": "integer" } } },
+          "pending_turns": { "type": "array", "items": { "type": "string" }, "description": "Ids de partidas con turno pendiente para el equipo." },
+          "submission": { "oneOf": [ { "$ref": "#/components/schemas/SubmissionRecord" }, { "type": "null" } ] }
+        }
+      },
+      "Game": {
+        "type": "object",
+        "required": ["game_id", "kind", "status", "players", "moves", "board"],
+        "properties": {
+          "game_id": { "type": "string" },
+          "match_id": { "type": ["string", "null"] },
+          "kind": { "type": "string", "enum": ["practice", "friendly", "league", "third_place", "final"] },
+          "status": { "type": "string", "enum": ["playing", "finished"] },
+          "players": { "type": "object", "properties": { "1": { "$ref": "#/components/schemas/Team" }, "2": { "$ref": "#/components/schemas/Team" } } },
+          "moves": { "type": "array", "items": { "type": "object", "required": ["turn", "by", "column"], "properties": { "turn": { "type": "integer" }, "by": { "$ref": "#/components/schemas/Player" }, "column": { "$ref": "#/components/schemas/Column" }, "ms": { "type": "integer", "description": "Milisegundos que tardó el bot desde served_at." } } } },
+          "board": { "$ref": "#/components/schemas/Board" },
+          "result": {
+            "type": ["object", "null"], "description": "null mientras la partida está en curso.",
+            "properties": {
+              "winner": { "type": ["integer", "null"], "enum": [1, 2, null], "description": "null en empate." },
+              "reason": { "type": "string", "enum": ["connect4", "draw", "illegal_move", "timeout", "absent"] },
+              "winning_cells": { "type": "array", "items": { "type": "array", "items": { "type": "integer" }, "minItems": 2, "maxItems": 2 } }
+            }
+          },
+          "started_at": { "type": "string", "format": "date-time" },
+          "finished_at": { "type": ["string", "null"], "format": "date-time" }
+        }
+      }
+    }
+  }
+}
