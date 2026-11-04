@@ -2,7 +2,12 @@ import { TestBed } from '@angular/core/testing';
 
 import { App, RETRY_SECONDS } from './app';
 import { TOUCH_INPUT } from './device';
-import { FAKE_SCENARIO, FAKE_THINK_MS, FakeGameApiService } from './game/fake-game-api.service';
+import {
+  FAKE_SCENARIO,
+  FAKE_THINK_MS,
+  FakeGameApiService,
+  USING_FAKE_API,
+} from './game/fake-game-api.service';
 import { FakeScenario } from './game/fake-scenarios';
 import { GameApi } from './game/game-api';
 import { stubDialog } from './testing/dialog-stub';
@@ -284,5 +289,15 @@ describe('App', () => {
     await app.click('Volver a jugar contra el bot');
     expect(app.host.querySelector('app-replay')).toBeNull();
     expect(app.button('Empezar partida')).not.toBeNull();
+  });
+
+  it('con el bot simulado lo avisa en la barra; con el real, no', async () => {
+    const real = await start();
+    expect(real.host.querySelector('.demo-badge')).toBeNull();
+    TestBed.resetTestingModule();
+
+    TestBed.overrideProvider(USING_FAKE_API, { useValue: true });
+    const demo = await start();
+    expect(demo.host.querySelector('.demo-badge')?.textContent?.trim()).toBe('Bot simulado (demo)');
   });
 });

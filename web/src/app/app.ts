@@ -12,6 +12,7 @@ import { Observable } from 'rxjs';
 import { Board } from './board/board';
 import { Confetti } from './confetti/confetti';
 import { TOUCH_INPUT } from './device';
+import { USING_FAKE_API } from './game/fake-game-api.service';
 import { History } from './history/history';
 import { Replay } from './replay/replay';
 import { Rules } from './rules/rules';
@@ -45,6 +46,8 @@ export class App {
   private readonly api = inject(GameApi);
   private readonly retrySeconds = inject(RETRY_SECONDS);
   protected readonly touch = inject(TOUCH_INPUT);
+  /** Con ?scenario= juega un bot de prueba: se avisa siempre para no confundirlo con el real. */
+  protected readonly usingFake = inject(USING_FAKE_API);
 
   /** Único estado de la partida: lo que devolvió la API, sin derivar reglas. `null` en el inicio. */
   protected readonly game = signal<GameState | null>(null);

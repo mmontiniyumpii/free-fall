@@ -1,12 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
-import {
-  ApplicationConfig,
-  DOCUMENT,
-  inject,
-  provideBrowserGlobalErrorListeners,
-} from '@angular/core';
+import { ApplicationConfig, inject, provideBrowserGlobalErrorListeners } from '@angular/core';
 
-import { FakeGameApiService, fakeRequested } from './game/fake-game-api.service';
+import { FakeGameApiService, USING_FAKE_API } from './game/fake-game-api.service';
 import { GameApi } from './game/game-api';
 import { GameApiService } from './game/game-api.service';
 
@@ -19,9 +14,7 @@ export const appConfig: ApplicationConfig = {
     {
       provide: GameApi,
       useFactory: () =>
-        fakeRequested(inject(DOCUMENT).location.search)
-          ? inject(FakeGameApiService)
-          : inject(GameApiService),
+        inject(USING_FAKE_API) ? inject(FakeGameApiService) : inject(GameApiService),
     },
   ],
 };

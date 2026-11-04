@@ -27,6 +27,11 @@ export function fakeRequested(search: string): boolean {
   return new URLSearchParams(search).has('scenario');
 }
 
+/** La app está usando el bot simulado (una sola fuente para el proveedor y la etiqueta). */
+export const USING_FAKE_API = new InjectionToken<boolean>('USING_FAKE_API', {
+  factory: () => fakeRequested(inject(DOCUMENT).location.search),
+});
+
 /** El bot falso no decide: juega la primera columna disponible en este orden fijo. */
 const FAKE_BOT_ORDER = [3, 4, 2, 5, 1, 6, 0, 7];
 

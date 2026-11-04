@@ -1,5 +1,16 @@
 <header class="topbar">
-  <span class="brand">Cuatro en línea</span>
+  <div class="brand-row">
+    <span class="brand">Cuatro en línea</span>
+    @if (usingFake) {
+      <span
+        class="demo-badge"
+        role="status"
+        title="Este modo usa un bot de prueba que no razona ni detecta cuatro en línea. Quitá ?scenario= de la dirección para jugar contra el bot real."
+      >
+        Bot simulado (demo)
+      </span>
+    }
+  </div>
   <button type="button" class="icon-button" aria-label="Cómo se juega" title="Cómo se juega" (click)="rulesOpen.set(true)">
     <!-- Ícono info de Lucide (ISC). -->
     <svg class="icon" viewBox="0 0 24 24" aria-hidden="true">

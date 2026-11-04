@@ -155,6 +155,7 @@ El historial necesita saber quién hizo cada jugada, y `history` solo trae colum
   - `offline`, donde la primera jugada se aplica pero la respuesta se pierde
   - `lost`, que responde 404
 - El bot falso tarda 1 500 ms, como el motor. Responde en un orden fijo de columnas (3, 4, 2, 5, 1, 6, 0, 7) y no detecta ganador.
+- Mientras el fake está activo, la barra superior muestra la etiqueta **"Bot simulado (demo)"**. Se agregó después de que, en una prueba manual, se confundió al fake con el bot real: el fake apilaba fichas y no cortaba la partida con cuatro en línea.
 
 **Por qué.** Hay estados que no se pueden provocar a mano: sin conexión, partida perdida, empate. Se necesitan para la demo, para las capturas del manual y para los tests.
 
