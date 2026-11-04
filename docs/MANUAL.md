@@ -37,7 +37,8 @@ Pedile a quien instaló la app la dirección para entrar y abrila en el navegado
    - **Normal:** mira 6 jugadas adelante. Se le puede ganar planificando.
    - **Difícil** (viene elegido): mira tan lejos como le da el tiempo y aprovecha cualquier error.
 3. **Empezar partida.** Arranca el juego. Si elegiste que abra el bot, primero lo vas a ver pensar y después aparece su ficha.
-4. **Cómo se juega.** Abre las reglas en cualquier momento (ver la sección 6).
+4. **Ver una partida del torneo.** Abre la reproducción de una partida que jugó el bot contra otro equipo (ver la sección 9).
+5. **Cómo se juega.** Abre las reglas en cualquier momento (ver la sección 6).
 
 ## 2. Tu turno
 
@@ -55,8 +56,8 @@ Qué significa cada cosa:
 3. **Ayuda.** Indica la columna y la fila donde caería tu ficha.
 4. **Última jugada del bot.** Dato informativo: en qué columna jugó, hasta cuántas jugadas adelante miró y cuánto tardó. No hace falta para jugar.
 5. **Reiniciar.** Empieza una partida nueva con la misma configuración.
-   Debajo, **Cambiar configuración** vuelve a la pantalla de inicio para elegir de nuevo quién empieza y la dificultad. Como la partida en curso se pierde, antes pregunta: **Seguir jugando** (o la tecla Esc) cancela y **Volver al inicio** confirma.
-6. **Historial.** Todas las jugadas, de la más reciente a la primera, con quién jugó y en qué columna.
+6. **Cambiar configuración.** Vuelve a la pantalla de inicio para elegir de nuevo quién empieza y la dificultad. Como la partida en curso se pierde, antes pregunta: **Seguir jugando** (o la tecla Esc) cancela y **Volver al inicio** confirma. Mientras el bot piensa, este botón espera a que responda.
+7. **Historial.** Todas las jugadas, de la más reciente a la primera, con quién jugó y en qué columna.
 
 ## 3. El bot está pensando
 
@@ -118,7 +119,7 @@ Si la app no puede comunicarse con el bot (por ejemplo, porque se cerró el prog
 
 1. Arriba del tablero aparece **Sin conexión con el bot** y el tablero se ve más apagado.
 2. La app vuelve a intentar sola cada 5 segundos y muestra la cuenta regresiva.
-3. **Reintentar** prueba en ese momento. **Reiniciar** empieza otra partida.
+3. **Reintentar** prueba en ese momento. **Reiniciar** empieza otra partida y **Cambiar configuración** vuelve al inicio.
 
 Tu última ficha se sigue viendo mientras tanto. Cuando vuelve la conexión, la app revisa si la jugada llegó al bot antes de reenviarla, así que nunca se juega dos veces.
 
@@ -152,6 +153,9 @@ Depende de la dificultad. En Fácil y Normal responde casi al instante. En Difí
 
 **¿Qué son los números de "Última del bot"?**
 Muestran cómo pensó el bot su última jugada: cuántas jugadas adelante miró ("profundidad"), cuántas posiciones revisó ("nodos") y cuánto tardó. Son informativos.
+
+**¿Qué significa la etiqueta "BOT SIMULADO (DEMO)" arriba?**
+Que la app está en un modo de prueba, con un bot que no razona ni corta la partida con cuatro en línea. Aparece solo si la dirección termina en `?scenario=…`. Para jugar contra el bot real, abrí la dirección sin esa parte.
 
 **¿Puedo jugar desde el teléfono?**
 Sí, si el teléfono está en la misma red que la computadora donde corre la app (ver "Cómo abrirla").
