@@ -5,7 +5,9 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -50,11 +52,27 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// connected lo escribe el loop del árbitro y lo lee GET /health.
-	// atomic.Bool se puede usar desde varias goroutines sin mutex.
-	w := warmUp(engine.ChooseMove, time.Second)
+	if err := run(ctx, cfg, time.Second); err != nil {
+		slog.Error("bot stopped", "err", err)
+		os.Exit(1)
+	}
+}
+
+// run arranca el bot con cfg y bloquea hasta que ctx se cancela. warm es la duración del warm-up.
+// Devuelve error si el servidor no puede arrancar.
+func run(ctx context.Context, cfg config.Config, warm time.Duration) error {
+	// El puerto se abre ANTES del warm-up y del loop: si ya hay otra instancia del bot en esta máquina,
+	// esta falla sin haber pedido ningún turno al árbitro (docs/TECNICO.md, D15).
+	ln, err := net.Listen("tcp", ":"+cfg.Port)
+	if err != nil {
+		return fmt.Errorf("listen on port %s (is another bot already running?): %w", cfg.Port, err)
+	}
+
+	w := warmUp(engine.ChooseMove, warm)
 	slog.Info("engine warm-up", "depth", w.Depth, "nodes", w.Nodes, "elapsed_ms", w.Elapsed.Milliseconds())
 
+	// connected lo escribe el loop del árbitro y lo lee GET /health.
+	// atomic.Bool se puede usar desde varias goroutines sin mutex.
 	var connected atomic.Bool
 	if cfg.ArbiterURL != "" {
 		client := arbiter.NewClient(cfg.ArbiterURL, cfg.TeamToken)
@@ -66,7 +84,6 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:    ":" + cfg.Port,
 		Handler: api.NewServer(localChooser(engine.ChooseMove, cfg.Think), cfg.Think, &connected).Handler(),
 		// Corta clientes que no terminan de mandar los headers (evita sockets colgados).
 		ReadHeaderTimeout: 5 * time.Second,
@@ -81,8 +98,9 @@ func main() {
 	}()
 
 	slog.Info("bot listening", "config", cfg)
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		slog.Error("server stopped", "err", err)
-		os.Exit(1)
+	// Serve usa el puerto ya abierto y lo cierra al terminar.
+	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
+		return err
 	}
+	return nil
 }
