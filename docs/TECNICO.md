@@ -69,6 +69,175 @@ Herramientas que viven en el mismo módulo:
 - `docs/api-local.md` y `docs/fixtures/game-state.example.json`, entre el bot y la app.
 - `docs/bases/arbitro-openapi.json`, entre el bot o la app y el árbitro.
 
+## Algoritmo
+
+El motor está en `bot/internal/engine`. Su única función pública es `ChooseMove(board, me, legal, Options{Budget, MaxDepth})`, que devuelve la columna elegida junto con la profundidad alcanzada, los nodos visitados, el valor de la jugada y el tiempo usado. El torneo y la app llaman a esta misma función.
+
+### Búsqueda
+
+**Negamax con poda alfa-beta** (`search.go`).
+
+- **Negamax.** Es minimax escrito desde el punto de vista de quien mueve: el valor de una jugada es el negativo del mejor valor que consigue el rival desde la posición resultante. Así hay una sola función para los dos jugadores.
+- **Alfa-beta.** `alpha` es lo mínimo que el jugador ya tiene asegurado y `beta` lo máximo que el rival le va a permitir. Cuando una jugada alcanza `beta`, el resto de las hermanas no se mira, porque el rival nunca dejaría llegar a esa posición. El resultado es el mismo que el de minimax completo, visitando muchos menos nodos.
+- **Valor de una victoria:** `100 000 − ply`, donde `ply` es la cantidad de jugadas desde la raíz. Entre dos victorias se prefiere la más rápida, y entre dos derrotas, la más lenta.
+- **Tablero lleno sin ganador:** vale 0.
+
+**Iterative deepening** (`choose.go`). Se busca a profundidad 1, después a 2, después a 3, y así mientras quede tiempo. Se juega la mejor columna de la **última profundidad completa**; si una profundidad se aborta por tiempo, se descarta entera. La búsqueda también termina antes de tiempo en dos casos:
+
+- cuando encuentra una victoria o una derrota forzada, porque buscar más hondo no cambia el resultado;
+- cuando alcanza la cantidad de casillas libres.
+
+**Orden de jugadas** (`ordering.go`). Alfa-beta poda más cuanto antes se prueba la mejor jugada.
+
+- **En la raíz,** primero se prueba la mejor columna de la profundidad anterior (D4) y después el resto, del centro hacia los bordes.
+- **En el resto del árbol,** siempre se va del centro a los bordes: `3, 4, 2, 5, 1, 6, 0, 7`. Las columnas centrales participan en más líneas posibles: la 3 y la 4 están en 4 ventanas horizontales por fila, y la 0 y la 7 en una sola.
+
+**Representación interna** (`position.go`). Se usan arrays fijos: `cells[56]`, ordenado por columnas, y `heights[8]`. Las jugadas se hacen y deshacen en el lugar con `drop` y `undo`. La búsqueda no pide memoria: `TestSearchDoesNotAllocate` y el benchmark dan `0 allocs/op`. En un Apple M4 recorre entre 2 y 3 millones de posiciones por segundo, y en el medio juego llega a profundidad 10–11 con 1 500 ms.
+
+### Heurística
+
+Cuando la búsqueda llega a su profundidad máxima sin ganador, `evaluate` (`evaluate.go`) puntúa la posición para quien mueve, recorriendo las **107 ventanas** de 4 casillas donde puede formarse un cuatro en línea:
+
+| Dirección | Cuenta | Ventanas |
+|---|---|---:|
+| Horizontal | 7 filas × 5 posiciones | 35 |
+| Vertical | 8 columnas × 4 posiciones | 32 |
+| Diagonal ↗ | | 20 |
+| Diagonal ↘ | | 20 |
+| **Total** | | **107** |
+
+Las ventanas se calculan una sola vez al cargar el paquete y nunca se modifican. `TestWindows` verifica que sean 107, cuántas hay de cada dirección y que cada una forme una línea recta.
+
+| Patrón en una ventana | Peso |
+|---|---:|
+| 3 fichas propias + 1 vacía | **+50** |
+| 2 fichas propias + 2 vacías | **+10** |
+| 3 fichas del rival + 1 vacía | **−60** |
+| Cada ficha propia en las columnas 3 o 4 | **+3** (−3 si es del rival) |
+
+Una ventana con fichas de los dos jugadores ya no puede dar un cuatro en línea, así que no suma.
+
+**Por qué estos pesos.**
+
+- **Un tres abierto vale 5 veces un dos abierto,** porque está a una ficha de ganar. Un dos abierto todavía necesita dos jugadas propias sin respuesta.
+- **El tres del rival pesa más que el propio (−60 contra +50).** Ante dos posiciones parecidas, el bot prefiere la que desarma una amenaza antes que la que arma otra. Perder una partida cuesta lo mismo que ganarla, pero una amenaza del rival que no se ve a tiempo es la forma más común de perder.
+- **El bonus del centro es chico (+3).** En un tablero de 8 columnas no hay una columna central única: la 3 y la 4 son las que más ventanas tocan. El bonus solo desempata posiciones sin amenazas, sobre todo en la apertura, y nunca supera a un tres.
+- **Los pesos no se ajustaron con experimentos.** Son los del plan (`PLAN_BACKEND.md` §5) y se validaron por resultados: 10 de 10 victorias contra `casa-basico` (D4) y 30 partidas de self-play sin errores (D5).
+
+### Manejo del tiempo
+
+**Dos topes por jugada.** Con `THINK_MS = 1500`, el valor por defecto:
+
+- **Presupuesto blando, en `THINK_MS`:** pasado ese tiempo no se empieza una profundidad nueva. La que está en curso puede terminar.
+- **Parada dura, en `THINK_MS + 250 ms` (1 750 ms):** la profundidad en curso se aborta y se juega la de la anterior. El plan decía 1 800 ms; con ese valor las jugadas llegaban al árbitro con 1 800–1 802 ms. Por eso se bajó a +250 ms (D4).
+
+En una partida real del mock (ver el ejemplo de abajo) se ven los dos casos:
+
+- jugadas de **1 750 ms**: una profundidad nueva empezó antes de los 1 500 ms y se abortó en la parada dura;
+- jugadas de **1 533 ms** y **1 609 ms**: la profundidad 11 terminó pasados los 1 500 ms y no se empezó la 12.
+
+**El reloj se consulta cada 2 048 nodos.** `time.Now()` en cada nodo sería demasiado caro. A 2–3 millones de nodos por segundo, 2 048 nodos son menos de 1 ms, así que la parada dura se respeta con ese margen. `TestRespectsBudget` lo verifica.
+
+**Warm-up.** Antes de entrar al loop del árbitro, `cmd/bot` hace una búsqueda de 1 s sobre el tablero vacío. Así, la primera jugada del torneo no paga el arranque en frío: código y memoria que todavía no están en caché. Por ejemplo, en el log de arranque de la partida del ejemplo dice `engine warm-up depth=10 nodes=2930688 elapsed_ms=1250`.
+
+**Por qué no se usa `served_at`.** El árbitro cuenta los 3 000 ms desde `served_at`, con su propio reloj. Restar `served_at` a la hora local mezclaría dos relojes distintos, y cualquier desfase entre las máquinas se trasladaría completo al cálculo: con un reloj local adelantado, el bot creería que ya no tiene tiempo. En cambio, el bot mide desde que recibe el turno (`received := time.Now()` en `internal/arbiter/loop.go`) y deja 1 250 ms de margen para la red y el parseo. `served_at` se guarda solo para los logs. Con 300 ms de latencia simulada, el peor `ms` medido por el mock fue 2 069 (D5).
+
+### Red de seguridad y guard final
+
+Antes de buscar, `ChooseMove` hace tres comprobaciones baratas:
+
+1. **Si hay una sola columna legal,** la juega sin buscar.
+2. **Si puede ganar en esta jugada,** gana.
+3. **Si el rival gana en su próxima jugada en alguna columna,** la bloquea.
+
+La búsqueda también encontraría estas jugadas, pero así se resuelven en microsegundos y no dependen de que la búsqueda llegue a completar la profundidad 1 o 2. `TestTactics` y `TestSafetyNetBlocksWithoutSearch` las prueban.
+
+**La jugada siempre pertenece a `legal_moves`.**
+
+- La raíz solo prueba columnas que están a la vez en `legal_moves` y libres en el tablero.
+- Al final, `guard` comprueba que la columna esté en `legal_moves` y, si no, devuelve la primera legal. Esto cubre el caso de que el árbitro mande un `legal_moves` que no coincida con el tablero.
+- El loop del árbitro agrega dos capas más: su propio guard, y un `recover` que juega la primera columna legal si el motor entra en `panic`.
+
+`TestNeverIllegal` (tableros al azar) y `TestGuardUsesGivenLegalMoves` lo prueban.
+
+### Dificultad
+
+La dificultad de la app **solo limita `MaxDepth`**: Fácil busca a profundidad 2, Intermedio a 6 y Difícil sin límite (`maxDepthFor` en `internal/api/games.go`). El presupuesto de tiempo, la heurística, la red de seguridad y el guard son los mismos en los tres niveles.
+
+**El torneo siempre juega sin límite:** `arbiter.EngineChooser` llama con `MaxDepth = 0` y no lee ninguna dificultad (D1). `TestRespectsMaxDepth` y `TestDeterministicWithMaxDepth` cubren el límite.
+
+### Fuentes y qué se adaptó a 8×7
+
+Regla 3 de las bases: se citan las técnicas tomadas de otros.
+
+- **Pascal Pons, "Solving Connect 4: how to build a perfect solver"** (blog.gamesolver.org).
+  - **Se tomó** la estructura negamax + alfa-beta, el orden de columnas desde el centro, el iterative deepening y el valor de victoria que depende de la cantidad de jugadas.
+  - **No se tomó** la representación con bitboards, la tabla de transposición ni la búsqueda con ventana nula: son la fase 2 del plan y no se implementaron (`TT_ENABLED` todavía no tiene efecto). Pons arma un solver exacto para 7×6. Este motor es heurístico y con tiempo acotado, porque para 8×7 no hay tablas públicas ni tiempo para resolver la posición completa.
+- **Knuth y Moore, "An analysis of alpha-beta pruning",** *Artificial Intelligence* 6(4), 1975. Es la justificación de que la poda no cambia el resultado de minimax, y de que el ahorro depende del orden de las jugadas. Por eso se invirtió en el orden.
+- **Chess Programming Wiki:** páginas Alpha-Beta, Iterative Deepening y Move Ordering. De ahí salen la técnica de probar primero la mejor jugada de la iteración anterior y la de descartar la profundidad abortada.
+- **Zobrist (1970)** figura en el plan, pero solo para la tabla de transposición de la fase 2. No se usa.
+
+**Adaptación propia al tablero de 8 columnas × 7 filas.**
+
+- Las ventanas: 107, contra las 69 del 7×6 clásico.
+- Dos columnas centrales (3 y 4) en lugar de una, tanto para el orden (`3, 4, 2, 5, 1, 6, 0, 7`) como para el bonus.
+- Los pesos de la heurística.
+- El tope de profundidad en 56 casillas.
+
+### Ejemplo: por qué el bot jugó la columna 1
+
+Partida de práctica contra `casa-basico` en el mock, jugada el 4 nov 2026 con el código de `bot/` del commit `1c2e508`:
+
+- mock: `cmd/mock -seed 7`;
+- práctica: `POST /api/practice {"opponent":"casa-basico","first":2}`;
+- el bot es el jugador **2** y `casa-basico` abre;
+- `casa-basico` gana si puede, bloquea si tiene que hacerlo, y si no juega al azar.
+
+Así quedó el tablero antes del turno 12 del bot. Las filas 4 a 6 están vacías:
+
+```
+fila 3   .  .  .  2  .  .  .  .
+fila 2   .  .  2  2  .  .  .  .
+fila 1   .  .  2  1  .  .  1  .
+fila 0   .  1  1  2  .  .  1  1
+col      0  1  2  3  4  5  6  7
+```
+
+Jugadas hasta ahí (columna de cada turno): `6 3 2 2 3 3 7 2 1 3 6`.
+
+**Lo que ve la heurística (profundidad 1).**
+
+| Columna | 0 | **1** | 2 | 3 | 4 | 5 | 6 | 7 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Valor | 16 | **76** | 16 | 19 | −31 | −34 | −34 | −44 |
+
+Las casillas se escriben como (fila, columna). La columna 1 pone una ficha en (1,1) y completa la diagonal ↗ (1,1)-(2,2)-(3,3) con las dos puntas vacías: (0,0) y (4,4). Son dos ventanas de "3 propias + 1 vacía", +50 cada una. Además, (0,0) se puede jugar enseguida: es una amenaza de ganar en el próximo turno.
+
+**Lo que ve la búsqueda.** Con el iterative deepening, la columna 1 es la mejor en casi todas las profundidades. En la 2 gana la columna 2, pero en la 3 vuelve la 1.
+
+En la **profundidad 9**, las columnas 0, 1, 2 y 3 valen **99 991**, es decir `100 000 − 9`: el bot gana en 9 jugadas, defienda como defienda el rival. Las columnas 4 a 7 valen entre 15 y 252: con ellas no hay una victoria forzada a 9 jugadas.
+
+Entre cuatro empates, se queda con la columna 1, porque fue la primera en probarse: era la mejor de la profundidad 8, y en la raíz un empate no reemplaza a la mejor jugada ya encontrada.
+
+Al encontrar una victoria forzada, el motor deja de profundizar. Por eso esta jugada tardó **206 ms**, contra los 1 500–1 750 ms de las anteriores. El log del turno dice `depth=9 nodes=473026 think_ms=206`.
+
+**Lo que pasó después.**
+
+| Turno | Quién | Columna | Comentario |
+|---|---|---:|---|
+| 13 | casa | 0 | Bloquea la punta (0,0) de la diagonal |
+| 14 | bot | 2 | `depth=7`, 6 ms: la victoria forzada sigue, ahora a 7 jugadas |
+| 15 | casa | 2 | |
+| 16 | bot | 3 | `depth=5` |
+| 17 | casa | 3 | |
+| 18 | bot | 1 | `depth=3`: arma dos amenazas apiladas en la columna 0, la diagonal ↗ en (1,0) y la fila 2 en (2,0) |
+| 19 | casa | 0 | Bloquea (1,0), y con esa ficha deja jugable (2,0) |
+| 20 | bot | 0 | `depth=1`, 0 nodos: la red de seguridad gana sin buscar |
+
+El bot gana en el turno 20 con la fila 2, columnas 0 a 3 (`winning_cells` `[[2,0],[2,1],[2,2],[2,3]]`), exactamente 9 jugadas después de la decisión del turno 12. La profundidad de cada jugada del bot baja de a dos (9, 7, 5, 3, 1), porque cada par de jugadas acerca la victoria en dos.
+
+Los valores por columna salen de un test temporal que no se commiteó: llama a `negamax` sobre este tablero para cada columna, a profundidad 1, 5, 7 y 9.
+
 ## Reporte de cobertura
 
 Se obtiene con `npm test` desde la raíz, que corre `go test ./... -race -cover`, después `covercheck` y por último los tests de Angular. Los valores son del 4 nov 2026, sobre el commit `ef8aac5`.
