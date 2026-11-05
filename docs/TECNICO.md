@@ -27,6 +27,8 @@ Un solo proceso de Go (`bot/cmd/bot`) atiende el torneo y la aplicación web con
                                              └──────────────────────────────────────────┘
 ```
 
+El diagrama detallado del bot está en [`docs/arquitectura-bot.html`](arquitectura-bot.html). Muestra los paquetes, un turno en milisegundos, el motor, la concurrencia y las redes de seguridad, con `archivo:línea`. Se abre directo en el navegador, sin servidor.
+
 **Arranque de `cmd/bot`.**
 
 1. Lee la configuración (`internal/config`).

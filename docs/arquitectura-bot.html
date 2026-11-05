@@ -1,0 +1,528 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Anatomía del bot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,500..800&family=JetBrains+Mono:wght@400;500;600&family=Source+Sans+3:wght@400;600&display=swap">
+<style>
+/* Layout: plano técnico sobre papel frío; los tres colores del juego codifican roles:
+   azul del tablero = motor y reglas, rojo = camino del torneo, ámbar = camino de la app. */
+:root {
+  --paper: #f2f4f8;
+  --sheet: #ffffff;
+  --ink: #152030;
+  --muted: #586478;
+  --line: #ccd4df;
+  --engine: #1f4fa3;
+  --engine-tint: #e5ecf8;
+  --tour: #b8382a;
+  --tour-tint: #faeae7;
+  --local: #9a6d00;
+  --local-tint: #fbf2d9;
+  --disc: #f0bf2c;
+  --on-accent: #ffffff;
+  --display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --sans: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0d121a; --sheet: #141b26; --ink: #e4e9f1; --muted: #97a2b4; --line: #2b3545;
+    --engine: #7ea4f0; --engine-tint: #16223a; --tour: #ef7c69; --tour-tint: #2b1919;
+    --local: #e6bd4f; --local-tint: #29230f; --disc: #e6bd4f; --on-accent: #0d121a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0d121a; --sheet: #141b26; --ink: #e4e9f1; --muted: #97a2b4; --line: #2b3545;
+  --engine: #7ea4f0; --engine-tint: #16223a; --tour: #ef7c69; --tour-tint: #2b1919;
+  --local: #e6bd4f; --local-tint: #29230f; --disc: #e6bd4f; --on-accent: #0d121a; color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font: 400 16px/1.55 var(--sans);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.page { max-width: 1080px; margin: 0 auto; padding-block: 40px 72px; display: grid; gap: 56px; }
+header { display: grid; gap: 14px; max-width: 72ch; }
+.eyebrow { font: 600 12px var(--sans); letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+h1 { font: 800 clamp(34px, 6vw, 56px)/1.02 var(--display); font-stretch: 118%; margin: 0; text-wrap: balance; }
+h2 { font: 700 26px/1.15 var(--display); font-stretch: 112%; margin: 0; text-wrap: balance; }
+h3 { font: 700 17px/1.25 var(--display); font-stretch: 105%; margin: 0; }
+p { margin: 0; }
+.lede { font-size: 18px; color: var(--muted); }
+code, .mono { font-family: var(--mono); font-size: .88em; }
+nav { display: flex; flex-wrap: wrap; gap: 8px; }
+nav a { font: 600 13px var(--sans); color: var(--ink); text-decoration: none; padding: 5px 11px; border: 1px solid var(--line); border-radius: 999px; background: var(--sheet); }
+nav a:hover, nav a:focus-visible { border-color: var(--engine); color: var(--engine); outline: none; }
+.facts { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 500 13px var(--mono); color: var(--muted); }
+
+section { display: grid; gap: 18px; scroll-margin-top: 16px; }
+section > .intro { display: grid; gap: 8px; max-width: 72ch; }
+section > .intro p { color: var(--muted); }
+
+.figure { background: var(--sheet); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+.figure svg { display: block; width: 100%; min-width: 780px; height: auto; }
+.figure.timeline svg { min-width: 680px; }
+.caption { font-size: 14px; color: var(--muted); max-width: 72ch; }
+
+/* SVG */
+.diagram .t-h { font: 600 13.5px var(--sans); fill: var(--ink); }
+.diagram .t-s { font: 400 11.5px var(--sans); fill: var(--muted); }
+.diagram .t-m { font: 500 11px var(--mono); fill: var(--ink); }
+.diagram .t-l { font: 600 10.5px var(--sans); letter-spacing: .08em; fill: var(--muted); }
+.diagram .c-tour { fill: var(--tour); }
+.diagram .c-local { fill: var(--local); }
+.diagram .c-engine { fill: var(--engine); }
+.diagram .on-accent { fill: var(--on-accent); font: 600 12px var(--sans); }
+.frame { fill: var(--sheet); stroke: var(--line); stroke-width: 1.5; }
+.lane { stroke-width: 1.4; }
+.lane.tour { fill: var(--tour-tint); stroke: var(--tour); }
+.lane.local { fill: var(--local-tint); stroke: var(--local); }
+.lane.engine { fill: var(--engine-tint); stroke: var(--engine); }
+.box { fill: var(--sheet); stroke: var(--line); }
+.step { fill: var(--paper); stroke: var(--line); }
+.step.dashed { stroke-dasharray: 4 3; }
+.actor { fill: var(--sheet); stroke-width: 1.6; }
+.actor.tour { stroke: var(--tour); }
+.actor.local { stroke: var(--local); }
+.wire { fill: none; stroke-width: 1.6; }
+.wire.tour { stroke: var(--tour); }
+.wire.local { stroke: var(--local); }
+.wire.engine { stroke: var(--engine); }
+.wire.shared { stroke: var(--muted); stroke-dasharray: 4 4; }
+.mk-tour { fill: var(--tour); } .mk-local { fill: var(--local); } .mk-engine { fill: var(--engine); } .mk-shared { fill: var(--muted); }
+.bar-engine { fill: var(--engine); }
+.bar-engine-soft { fill: var(--engine-tint); stroke: var(--engine); }
+.bar-tour { fill: var(--tour); }
+.bar-hatch { fill: url(#hatch); stroke: var(--line); }
+.hatch-line { stroke: var(--line); stroke-width: 2; }
+.axis { stroke: var(--ink); stroke-width: 1.2; }
+.guide { stroke: var(--muted); stroke-dasharray: 3 4; stroke-width: 1; }
+.marker-line { stroke: var(--tour); stroke-width: 2; }
+
+/* Motor */
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.card { background: var(--sheet); border: 1px solid var(--line); border-radius: 12px; padding: 20px 22px; display: grid; gap: 12px; align-content: start; min-width: 0; }
+.card h3 small { font: 500 12px var(--mono); color: var(--muted); margin-left: 6px; }
+ol.steps { margin: 0; padding-left: 22px; display: grid; gap: 8px; font-size: 15px; }
+ol.steps li::marker { font: 600 13px var(--mono); color: var(--engine); }
+.cols { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 6px; max-width: 420px; }
+.col { display: grid; justify-items: center; gap: 4px; }
+.disc { width: 100%; max-width: 40px; aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; font: 600 14px var(--mono); border: 2px solid var(--engine); color: var(--engine); background: var(--sheet); }
+.disc.top { background: var(--engine); color: var(--on-accent); }
+.col span { font: 500 11px var(--mono); color: var(--muted); }
+table { border-collapse: collapse; width: 100%; font-size: 14.5px; }
+th { text-align: left; font: 600 12px var(--sans); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); padding: 8px 10px; border-bottom: 1.5px solid var(--ink); }
+td { padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+td.score { font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; font-weight: 600; }
+.pos { color: var(--engine); } .neg { color: var(--tour); }
+.table-wrap { overflow-x: auto; background: var(--sheet); border: 1px solid var(--line); border-radius: 12px; padding: 6px 8px; }
+tr.tools td { color: var(--muted); }
+.pkg { font-family: var(--mono); font-size: 13.5px; white-space: nowrap; }
+.tag { display: inline-block; font: 600 11px var(--sans); padding: 1px 8px; border-radius: 999px; border: 1px solid currentColor; white-space: nowrap; }
+.tag.tour { color: var(--tour); } .tag.local { color: var(--local); } .tag.engine { color: var(--engine); }
+.note { border-left: 3px solid var(--engine); padding: 4px 0 4px 14px; max-width: 72ch; font-size: 15px; }
+dl.gloss { display: grid; grid-template-columns: minmax(150px, max-content) 1fr; gap: 10px 20px; margin: 0; }
+dl.gloss dt { font: 600 13.5px var(--mono); color: var(--engine); }
+dl.gloss dd { margin: 0; min-width: 0; }
+footer { font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 16px; }
+@media (max-width: 560px) {
+  dl.gloss { grid-template-columns: 1fr; gap: 2px 0; }
+  dl.gloss dd { margin-bottom: 10px; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="eyebrow">free-fall · bot de Cuatro en línea 8 × 7</div>
+    <h1>Anatomía del bot</h1>
+    <p class="lede">Cómo está armado el bot en Go: qué hace cada paquete, cómo viaja un turno desde el árbitro hasta la columna enviada, y qué pasa adentro del motor. Todo sale del código de <code>main</code> en <code>9cb819b</code>.</p>
+    <div class="facts"><span>Go 1.27 · solo librería estándar</span><span>1 686 líneas sin tests</span><span>6 paquetes + 3 herramientas</span></div>
+    <nav aria-label="Secciones">
+      <a href="#mapa">Mapa</a><a href="#turno">Un turno</a><a href="#motor">El motor</a><a href="#paquetes">Paquetes</a><a href="#concurrencia">Concurrencia</a><a href="#redes">Redes de seguridad</a><a href="#go">Go en una línea</a>
+    </nav>
+  </header>
+
+  <section id="mapa">
+    <div class="intro">
+      <h2>El mapa</h2>
+      <p>Un solo proceso con dos mitades que comparten el motor. La mitad roja juega el torneo contra el árbitro. La ámbar atiende a la app web. Las dos llaman a <code>engine.ChooseMove</code>, que no sabe de HTTP.</p>
+    </div>
+    <div class="figure">
+      <svg class="diagram" viewBox="0 0 1000 760" role="img" aria-label="Diagrama de paquetes del bot: main arranca el loop del árbitro y la API local, que comparten el motor; el motor usa las reglas de game.">
+        <defs>
+          <marker id="ah-tour" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="mk-tour"/></marker>
+          <marker id="ah-local" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="mk-local"/></marker>
+          <marker id="ah-engine" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="mk-engine"/></marker>
+          <marker id="ah-shared" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" class="mk-shared"/></marker>
+        </defs>
+
+        <!-- Árbitro -->
+        <rect x="230" y="10" width="440" height="56" rx="6" class="actor tour"/>
+        <text x="450" y="34" text-anchor="middle" class="t-h">Árbitro del torneo</text>
+        <text x="450" y="52" text-anchor="middle" class="t-s">HTTP con token Bearer · 3 000 ms por jugada</text>
+        <line x1="290" y1="66" x2="290" y2="138" class="wire tour" marker-end="url(#ah-tour)"/>
+        <text x="282" y="86" text-anchor="end" class="t-m c-tour">GET /api/next?wait=20</text>
+        <line x1="410" y1="140" x2="410" y2="68" class="wire tour" marker-end="url(#ah-tour)"/>
+        <text x="418" y="86" class="t-m c-tour">POST /api/move {column}</text>
+
+        <!-- Proceso -->
+        <rect x="10" y="96" width="980" height="572" rx="10" class="frame"/>
+        <text x="26" y="120" class="t-h">bin/bot · un solo proceso Go</text>
+        <text x="974" y="120" text-anchor="end" class="t-s">scripts/run-bot.sh lo relanza 1 s después si termina</text>
+
+        <!-- Arranque -->
+        <text x="30" y="152" class="t-l">CMD/BOT · MAIN.RUN</text>
+        <rect x="30" y="164" width="170" height="52" rx="6" class="step"/>
+        <text x="42" y="186" class="t-m">① config.Load</text>
+        <text x="42" y="204" class="t-s">lee y valida el entorno</text>
+        <rect x="30" y="228" width="170" height="52" rx="6" class="step"/>
+        <text x="42" y="250" class="t-m">② net.Listen :PORT</text>
+        <text x="42" y="268" class="t-s">si está ocupado, sale</text>
+        <rect x="30" y="292" width="170" height="52" rx="6" class="step"/>
+        <text x="42" y="314" class="t-m">③ warmUp(1 s)</text>
+        <text x="42" y="332" class="t-s">busca en el tablero vacío</text>
+        <rect x="30" y="356" width="170" height="52" rx="6" class="step"/>
+        <text x="42" y="378" class="t-m">④ go RunLoop · Serve</text>
+        <text x="42" y="396" class="t-s">arranca las dos mitades</text>
+        <path d="M200 382 H214 V262 H228" class="wire tour" marker-end="url(#ah-tour)"/>
+        <path d="M200 382 H214 V540 H228" class="wire local" marker-end="url(#ah-local)"/>
+        <rect x="30" y="432" width="170" height="70" rx="6" class="step dashed"/>
+        <text x="42" y="454" class="t-m">ctx cancelado</text>
+        <text x="42" y="472" class="t-s">Ctrl+C o SIGTERM</text>
+        <text x="42" y="490" class="t-s">Shutdown con 5 s de gracia</text>
+
+        <!-- Referencias -->
+        <text x="30" y="540" class="t-l">REFERENCIAS</text>
+        <line x1="30" y1="558" x2="54" y2="558" class="wire tour"/><text x="62" y="562" class="t-s">camino del torneo</text>
+        <line x1="30" y1="580" x2="54" y2="580" class="wire local"/><text x="62" y="584" class="t-s">camino de la app</text>
+        <line x1="30" y1="602" x2="54" y2="602" class="wire engine"/><text x="62" y="606" class="t-s">motor y reglas</text>
+        <line x1="30" y1="624" x2="54" y2="624" class="wire shared"/><text x="62" y="628" class="t-s">dato compartido</text>
+
+        <!-- internal/arbiter -->
+        <rect x="230" y="140" width="440" height="230" rx="8" class="lane tour"/>
+        <text x="246" y="164" class="t-h c-tour">internal/arbiter</text>
+        <text x="246" y="182" class="t-s">su propia goroutine · juega el torneo</text>
+        <rect x="246" y="196" width="196" height="158" rx="6" class="box"/>
+        <text x="258" y="218" class="t-h">Client</text>
+        <text x="258" y="238" class="t-m">Next → GET /api/next</text>
+        <text x="258" y="254" class="t-s">http.Client con timeout 35 s</text>
+        <text x="258" y="274" class="t-m">Move → POST /api/move</text>
+        <text x="258" y="290" class="t-s">http.Client con timeout 5 s</text>
+        <text x="258" y="310" class="t-m">ParseNext → Turn</text>
+        <text x="258" y="326" class="t-s">valida board, moves y legal</text>
+        <rect x="458" y="196" width="196" height="158" rx="6" class="box"/>
+        <text x="470" y="218" class="t-h">RunLoop · runOnce</text>
+        <text x="470" y="238" class="t-s">recover; si falla, espera 1 s</text>
+        <text x="470" y="256" class="t-m">safeChoose + guard</text>
+        <text x="470" y="274" class="t-m">moveWithRetry</text>
+        <text x="470" y="290" class="t-s">misma columna hasta 2 600 ms</text>
+        <text x="470" y="310" class="t-s">turno repetido → misma jugada</text>
+        <text x="470" y="328" class="t-m">EngineChooser(THINK_MS)</text>
+        <path d="M458 275 H446" class="wire tour" marker-end="url(#ah-tour)"/>
+
+        <!-- connected -->
+        <path d="M540 354 V387 H420 V452" class="wire shared" marker-end="url(#ah-shared)"/>
+        <text x="412" y="391" text-anchor="end" class="t-s">connected (atomic.Bool)</text>
+
+        <!-- internal/api -->
+        <rect x="230" y="400" width="440" height="252" rx="8" class="lane local"/>
+        <text x="246" y="424" class="t-h c-local">internal/api</text>
+        <text x="246" y="442" class="t-s">una goroutine por request</text>
+        <rect x="246" y="456" width="196" height="180" rx="6" class="box"/>
+        <text x="258" y="478" class="t-h">Server · rutas</text>
+        <text x="258" y="498" class="t-m">GET /health</text>
+        <text x="258" y="516" class="t-m">POST /local/games</text>
+        <text x="258" y="534" class="t-m">POST …/{id}/moves</text>
+        <text x="258" y="552" class="t-m">GET /local/games/{id}</text>
+        <text x="258" y="574" class="t-s">mapa con sync.Mutex</text>
+        <text x="258" y="592" class="t-s">y un mutex por partida</text>
+        <text x="258" y="614" class="t-m">safeChoose + guard</text>
+        <rect x="458" y="456" width="196" height="180" rx="6" class="box"/>
+        <text x="470" y="478" class="t-h">localChooser</text>
+        <text x="470" y="498" class="t-s">dificultad → profundidad máxima</text>
+        <text x="470" y="518" class="t-m">easy   → 2</text>
+        <text x="470" y="536" class="t-m">medium → 6</text>
+        <text x="470" y="554" class="t-m">hard   → sin límite</text>
+        <text x="470" y="576" class="t-s">mismo THINK_MS que el torneo</text>
+        <text x="470" y="594" class="t-s">se arma en main y se inyecta</text>
+        <path d="M442 545 H456" class="wire local" marker-end="url(#ah-local)"/>
+
+        <!-- App web -->
+        <rect x="230" y="694" width="440" height="56" rx="6" class="actor local"/>
+        <text x="450" y="718" text-anchor="middle" class="t-h">App web (Angular)</text>
+        <text x="450" y="736" text-anchor="middle" class="t-s">fuera de este diagrama</text>
+        <line x1="340" y1="692" x2="340" y2="638" class="wire local" marker-start="url(#ah-local)" marker-end="url(#ah-local)"/>
+        <text x="348" y="684" class="t-m c-local">HTTP :PORT · /local/*</text>
+
+        <!-- Hacia el motor -->
+        <path d="M654 330 H682 V226 H714" class="wire tour" marker-end="url(#ah-tour)"/>
+        <path d="M654 560 H692 V246 H714" class="wire local" marker-end="url(#ah-local)"/>
+
+        <!-- internal/engine -->
+        <rect x="700" y="140" width="270" height="420" rx="8" class="lane engine"/>
+        <text x="716" y="164" class="t-h c-engine">internal/engine</text>
+        <text x="716" y="182" class="t-s">sin red · sin estado compartido</text>
+        <rect x="716" y="196" width="238" height="88" rx="6" class="box"/>
+        <text x="728" y="216" class="t-h">ChooseMove</text>
+        <text x="728" y="236" class="t-s">una sola legal → la juega</text>
+        <text x="728" y="254" class="t-s">gana o bloquea en 1 jugada</text>
+        <text x="728" y="272" class="t-s">iterative deepening 1, 2, 3…</text>
+        <rect x="716" y="294" width="238" height="72" rx="6" class="box"/>
+        <text x="728" y="314" class="t-h">searcher · negamax α-β</text>
+        <text x="728" y="334" class="t-s">soft 1 500 ms · hard +250 ms</text>
+        <text x="728" y="352" class="t-s">mira el reloj cada 2 048 nodos</text>
+        <rect x="716" y="376" width="238" height="56" rx="6" class="box"/>
+        <text x="728" y="396" class="t-h">candidates · poda D16</text>
+        <text x="728" y="416" class="t-s">2 amenazas: perdida · 1: tapar</text>
+        <rect x="716" y="442" width="238" height="56" rx="6" class="box"/>
+        <text x="728" y="462" class="t-h">evaluate</text>
+        <text x="728" y="482" class="t-s">107 ventanas · +50 +10 −60 · ±3</text>
+        <rect x="716" y="508" width="238" height="44" rx="6" class="box"/>
+        <text x="728" y="526" class="t-h">position</text>
+        <text x="728" y="544" class="t-s">[56]uint8 · drop/undo sin memoria</text>
+
+        <!-- internal/game -->
+        <line x1="835" y1="560" x2="835" y2="582" class="wire engine" marker-end="url(#ah-engine)"/>
+        <text x="843" y="575" class="t-s">importa</text>
+        <rect x="700" y="584" width="270" height="68" rx="8" class="lane engine"/>
+        <text x="716" y="606" class="t-h c-engine">internal/game</text>
+        <text x="716" y="624" class="t-m">Board · LegalMoves · Apply · FindWin</text>
+        <text x="716" y="642" class="t-s">reglas puras · no importa nada</text>
+      </svg>
+    </div>
+    <p class="caption">Los números ①–④ son el orden real de <code>cmd/bot/main.go</code>. El puerto se abre antes del warm-up y del loop (D15): si ya hay otro bot corriendo, este sale sin haberle pedido un turno al árbitro.</p>
+  </section>
+
+  <section id="turno">
+    <div class="intro">
+      <h2>Un turno del torneo, en milisegundos</h2>
+      <p>El reloj arranca cuando el turno llega al bot, nunca desde <code>served_at</code>. El árbitro da 3 000 ms contados con su propio reloj. Lo que no usa el bot queda para la red.</p>
+    </div>
+    <div class="figure timeline">
+      <svg class="diagram" viewBox="0 0 1000 234" role="img" aria-label="Línea de tiempo de un turno: búsqueda hasta 1 500 ms, aborto a 1 750 ms, envío con reintentos hasta 2 600 ms, límite del árbitro a 3 000 ms.">
+        <defs>
+          <pattern id="hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" class="hatch-line"/></pattern>
+        </defs>
+        <line x1="500" y1="32" x2="500" y2="170" class="guide"/>
+        <line x1="573.3" y1="32" x2="573.3" y2="170" class="guide"/>
+        <line x1="822.7" y1="32" x2="822.7" y2="170" class="guide"/>
+        <line x1="940" y1="32" x2="940" y2="170" class="guide"/>
+
+        <rect x="60" y="40" width="440" height="30" rx="4" class="bar-engine"/>
+        <text x="72" y="60" class="on-accent">el motor busca y empieza profundidades nuevas</text>
+        <rect x="500" y="40" width="73.3" height="30" rx="4" class="bar-engine-soft"/>
+        <text x="536.7" y="60" text-anchor="middle" class="t-m c-engine">+250</text>
+
+        <rect x="573.3" y="90" width="249.4" height="30" rx="4" class="bar-tour"/>
+        <text x="585" y="110" class="on-accent">POST /api/move y reintentos</text>
+        <rect x="822.7" y="90" width="117.3" height="30" rx="4" class="bar-hatch"/>
+        <text x="881.3" y="110" text-anchor="middle" class="t-s">red y reloj</text>
+
+        <line x1="577.1" y1="134" x2="577.1" y2="152" class="marker-line"/>
+        <text x="585" y="148" class="t-s">1 763 ms · máximo medido en 20 prácticas contra el mock</text>
+
+        <line x1="60" y1="170" x2="940" y2="170" class="axis"/>
+        <line x1="60" y1="165" x2="60" y2="175" class="axis"/>
+        <line x1="500" y1="165" x2="500" y2="175" class="axis"/>
+        <line x1="573.3" y1="165" x2="573.3" y2="175" class="axis"/>
+        <line x1="822.7" y1="165" x2="822.7" y2="175" class="axis"/>
+        <line x1="940" y1="165" x2="940" y2="175" class="axis"/>
+        <text x="60" y="191" class="t-m">0</text>
+        <text x="500" y="191" text-anchor="middle" class="t-m">1 500</text>
+        <text x="573.3" y="191" text-anchor="middle" class="t-m">1 750</text>
+        <text x="822.7" y="191" text-anchor="middle" class="t-m">2 600</text>
+        <text x="940" y="191" text-anchor="end" class="t-m">3 000 ms</text>
+        <text x="60" y="209" class="t-s">llega el turno</text>
+        <text x="573.3" y="209" text-anchor="middle" class="t-s">hard stop</text>
+        <text x="940" y="209" text-anchor="end" class="t-s">límite del árbitro</text>
+        <text x="500" y="226" text-anchor="middle" class="t-s">soft stop (THINK_MS)</text>
+        <text x="822.7" y="226" text-anchor="middle" class="t-s">límite propio del envío</text>
+      </svg>
+    </div>
+    <div class="two">
+      <div class="card">
+        <h3>Recibir <small>runOnce · loop.go:86</small></h3>
+        <ol class="steps">
+          <li><code>Client.Next</code> hace el long poll. Si no hay turno vuelve <code>idle</code> y el loop pregunta otra vez sin dormir.</li>
+          <li><code>ParseNext</code> convierte el JSON en un <code>Turn</code> y valida el tablero. Siempre se usa el <code>game_id</code> que vino en la respuesta.</li>
+          <li>Si es el mismo turno que el anterior (mismo <code>game_id</code> y número), el POST no había llegado: se reenvía la columna recordada sin volver a pensar.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Decidir y enviar <small>loop.go:140</small></h3>
+        <ol class="steps">
+          <li><code>safeChoose</code> llama al motor. Si el motor entra en panic, juega la primera columna legal.</li>
+          <li><code>guard</code> verifica que la columna esté en <code>legal_moves</code>.</li>
+          <li><code>moveWithRetry</code> envía. Si se corta la red, reintenta la misma columna cada 50 ms hasta los 2 600 ms. Un 400 o un 409 no se reintentan.</li>
+          <li>Escribe una línea de log con <code>game_id</code>, <code>column</code>, <code>depth</code>, <code>nodes</code>, <code>elapsed_ms</code> y <code>attempts</code>.</li>
+        </ol>
+      </div>
+    </div>
+    <p class="caption">La búsqueda casi siempre termina en el soft stop, así que el POST suele salir alrededor de los 1 500 ms. La barra roja muestra el peor caso: la búsqueda abortada en 1 750 ms y el envío con reintentos. Reenviar es seguro: si un envío anterior sí llegó, el árbitro responde <code>409 not_your_turn</code>, que no penaliza.</p>
+  </section>
+
+  <section id="motor">
+    <div class="intro">
+      <h2>Adentro del motor</h2>
+      <p>Negamax con poda alfa-beta y profundización iterativa. La raíz decide cuándo parar. Cada nodo decide qué jugadas vale la pena mirar.</p>
+    </div>
+    <div class="two">
+      <div class="card">
+        <h3>En la raíz <small>ChooseMove · choose.go:39</small></h3>
+        <ol class="steps">
+          <li>Si hay una sola columna legal, la juega sin buscar.</li>
+          <li>Si gana en una jugada, gana. Si el rival gana en su próxima, la tapa.</li>
+          <li>Busca a profundidad 1, después 2, después 3… La mejor jugada de cada vuelta se prueba primero en la siguiente.</li>
+          <li>Pasados 1 500 ms no empieza otra profundidad. A los 1 750 ms aborta la que está en curso y se queda con la anterior completa. Si encuentra una victoria o una derrota forzada, también para.</li>
+          <li>El guard final asegura que la columna esté en <code>legal</code>.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>En cada nodo <small>negamax · search.go:32</small></h3>
+        <ol class="steps">
+          <li>Cada 2 048 nodos mira el reloj. Si pasó el hard stop, abandona.</li>
+          <li>Tablero lleno: empate, vale 0. Profundidad 0: devuelve <code>evaluate</code>.</li>
+          <li>Si quien mueve gana en una jugada, el nodo vale <code>100 000 − ply</code>, así prefiere ganar rápido y perder lento.</li>
+          <li><code>candidates</code>: con dos amenazas del rival el nodo está perdido; con una, solo se prueba taparla; sin amenazas se prueban todas, y las que regalan la casilla de arriba van al final.</li>
+          <li>Para cada hija: <code>drop</code>, el valor es el negativo de lo que obtiene el rival, <code>undo</code>. Corta cuando α ≥ β.</li>
+        </ol>
+      </div>
+    </div>
+    <div class="two">
+      <div class="card">
+        <h3>Orden de las columnas <small>centerFirst · ordering.go</small></h3>
+        <div class="cols" aria-label="Orden en que se prueban las columnas: 3, 4, 2, 5, 1, 6, 0, 7">
+          <div class="col"><div class="disc">7</div><span>c0</span></div>
+          <div class="col"><div class="disc">5</div><span>c1</span></div>
+          <div class="col"><div class="disc">3</div><span>c2</span></div>
+          <div class="col"><div class="disc top">1</div><span>c3</span></div>
+          <div class="col"><div class="disc top">2</div><span>c4</span></div>
+          <div class="col"><div class="disc">4</div><span>c5</span></div>
+          <div class="col"><div class="disc">6</div><span>c6</span></div>
+          <div class="col"><div class="disc">8</div><span>c7</span></div>
+        </div>
+        <p>Las columnas del centro participan en más líneas de cuatro, así que suelen ser mejores. Probar primero las mejores hace que alfa-beta pode antes.</p>
+      </div>
+      <div class="card">
+        <h3>La heurística <small>evaluate · evaluate.go:39</small></h3>
+        <table>
+          <thead><tr><th>En una ventana de 4</th><th>Puntos</th></tr></thead>
+          <tbody>
+            <tr><td>3 propias y 1 vacía</td><td class="score pos">+50</td></tr>
+            <tr><td>2 propias y 2 vacías</td><td class="score pos">+10</td></tr>
+            <tr><td>3 del rival y 1 vacía</td><td class="score neg">−60</td></tr>
+            <tr><td>Cada ficha en las columnas 3 y 4</td><td class="score">±3</td></tr>
+          </tbody>
+        </table>
+        <p>Hay 107 ventanas: 35 horizontales, 32 verticales y 40 diagonales. Bloquear pesa un poco más que atacar.</p>
+      </div>
+    </div>
+    <p class="note">Dos tableros. Afuera del motor se usa <code>game.Board[fila][columna]</code>, con la fila 0 abajo, igual que el árbitro. Adentro, <code>position.cells[col·7 + fila]</code> más <code>heights[col]</code>: la casilla libre de una columna sale de una cuenta, y <code>drop</code>/<code>undo</code> modifican arrays fijos sin pedir memoria (0 allocs/op).</p>
+  </section>
+
+  <section id="paquetes">
+    <div class="intro">
+      <h2>Los paquetes</h2>
+      <p>Las dependencias apuntan hacia adentro. <code>game</code> no importa nada. <code>engine</code> solo importa <code>game</code>. <code>arbiter</code> y <code>api</code> no se conocen entre sí. <code>main</code> es el único que conoce a todos y los conecta.</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Paquete</th><th>Qué hace</th><th>Importa</th><th>Líneas</th></tr></thead>
+        <tbody>
+          <tr><td class="pkg">internal/game</td><td>Reglas puras: tablero, jugadas legales, aplicar una ficha, victoria, empate. <span class="tag engine">reglas</span></td><td class="mono">nada</td><td class="num">142</td></tr>
+          <tr><td class="pkg">internal/engine</td><td>Búsqueda y evaluación. Sin HTTP y sin estado de paquete mutable. <span class="tag engine">motor</span></td><td class="mono">game</td><td class="num">453</td></tr>
+          <tr><td class="pkg">internal/arbiter</td><td>Cliente HTTP del árbitro, parseo de turnos, el loop del torneo y el adaptador al motor (<code>chooser.go</code>). <span class="tag tour">torneo</span></td><td class="mono">game, engine</td><td class="num">511</td></tr>
+          <tr><td class="pkg">internal/api</td><td>API local para la app web: partidas en memoria y dificultad. Recibe el motor como función. <span class="tag local">app</span></td><td class="mono">game</td><td class="num">353</td></tr>
+          <tr><td class="pkg">internal/config</td><td>Lee y valida las variables de entorno. <code>String</code> y <code>LogValue</code> ocultan el token.</td><td class="mono">nada</td><td class="num">121</td></tr>
+          <tr><td class="pkg">cmd/bot</td><td>Arma todo y arranca: puerto, warm-up, loop y servidor.</td><td class="mono">todos</td><td class="num">106</td></tr>
+          <tr class="tools"><td class="pkg">cmd/mock · selfplay · covercheck</td><td>Herramientas de desarrollo: árbitro simulado, dos motores contra el mock y control de cobertura ≥ 70 %. No van en el binario del torneo.</td><td class="mono">—</td><td class="num">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">La inyección de dependencias se hace con tipos función, sin interfaces: <code>arbiter.ChooseFunc</code> y <code>api.Chooser</code>. En producción <code>main</code> les pasa el motor real; en los tests se pasa un motor falso que, por ejemplo, devuelve una columna ilegal para probar el guard.</p>
+  </section>
+
+  <section id="concurrencia">
+    <div class="intro">
+      <h2>Concurrencia</h2>
+      <p>Hay cuatro tipos de goroutine y solo dos datos compartidos. El motor puede correr en paralelo porque cada llamada arma su propia posición.</p>
+    </div>
+    <div class="two">
+      <div class="card">
+        <h3>Quién corre</h3>
+        <ol class="steps">
+          <li>La goroutine principal queda en <code>srv.Serve</code>, atendiendo la API local.</li>
+          <li><code>net/http</code> abre una goroutine por cada request de la app.</li>
+          <li><code>RunLoop</code> corre en su propia goroutine y juega un turno a la vez.</li>
+          <li>Una goroutine espera <code>ctx.Done()</code> y llama a <code>Shutdown</code>.</li>
+        </ol>
+      </div>
+      <div class="card">
+        <h3>Qué se comparte</h3>
+        <table>
+          <tbody>
+            <tr><td class="mono">connected</td><td><code>atomic.Bool</code>. Lo escribe el loop y lo lee <code>/health</code>.</td></tr>
+            <tr><td class="mono">partidas locales</td><td>Un mapa con <code>sync.Mutex</code> y un mutex más por partida.</td></tr>
+            <tr><td class="mono">motor</td><td>Nada mutable. Cada <code>ChooseMove</code> crea su <code>searcher</code>. <code>windows</code> y <code>centerFirst</code> son de solo lectura.</td></tr>
+          </tbody>
+        </table>
+        <p>Dentro de la búsqueda no hay goroutines: paralelizar alfa-beta no es trivial. Todos los tests corren con <code>-race</code>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="redes">
+    <div class="intro">
+      <h2>Redes de seguridad</h2>
+      <p>Cada falla posible tiene algo que la ataja antes de perder una partida.</p>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Si pasa esto</th><th>Lo ataja</th><th>Dónde</th></tr></thead>
+        <tbody>
+          <tr><td>El motor devuelve una columna ilegal</td><td>Guard doble: en el motor y en el loop</td><td class="mono">choose.go:98 · loop.go:175</td></tr>
+          <tr><td>El motor entra en panic</td><td><code>safeChoose</code> juega la primera legal</td><td class="mono">loop.go:164 · api/games.go:84</td></tr>
+          <tr><td>Cualquier panic en una iteración</td><td><code>recover</code> en <code>runOnce</code>; el loop espera 1 s y sigue</td><td class="mono">loop.go:86</td></tr>
+          <tr><td>Un socket queda colgado</td><td><code>http.Client</code> con timeout de 35 s (long poll) y 5 s (jugada)</td><td class="mono">client.go:37</td></tr>
+          <tr><td>Se corta el POST de la jugada</td><td>Reintento de la misma columna hasta 2 600 ms (D14)</td><td class="mono">loop.go:140</td></tr>
+          <tr><td>El árbitro reentrega el turno</td><td>Se reenvía la decisión recordada sin volver a pensar</td><td class="mono">loop.go:86</td></tr>
+          <tr><td>El proceso muere</td><td><code>run-bot.sh</code> lo relanza en 1 s</td><td class="mono">scripts/run-bot.sh</td></tr>
+          <tr><td>Arranca una segunda instancia</td><td>Abre el puerto primero y sale con código 1 (D15)</td><td class="mono">cmd/bot/main.go:63</td></tr>
+          <tr><td>El token aparece en un log</td><td><code>Config.String</code> y <code>LogValue</code> lo reemplazan por "(definido)"</td><td class="mono">config.go</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section id="go">
+    <div class="intro">
+      <h2>Go en una línea</h2>
+      <p>Las construcciones del diagrama que no son obvias si venís de otro lenguaje.</p>
+    </div>
+    <div class="card">
+      <dl class="gloss">
+        <dt>go f()</dt><dd>Lanza <code>f</code> en una goroutine, en paralelo con el resto. Así arranca <code>RunLoop</code>.</dd>
+        <dt>defer + recover()</dt><dd><code>defer</code> corre al salir de la función, aunque haya un panic; <code>recover</code> lo atrapa ahí. Lo usan <code>runOnce</code> y <code>safeChoose</code>.</dd>
+        <dt>context.Context</dt><dd>Una señal de cancelación y de plazo que se pasa hacia abajo. Ctrl+C cancela el loop; <code>WithTimeout</code> le pone plazo a cada intento del POST.</dd>
+        <dt>atomic.Bool</dt><dd>Un booleano que varias goroutines leen y escriben sin mutex.</dd>
+        <dt>*position</dt><dd>Un puntero: <code>drop</code> y <code>undo</code> modifican la misma posición en vez de copiarla.</dd>
+        <dt>array vs slice</dt><dd><code>game.Board</code> es un array: al pasarlo a una función se copia entero, así nadie modifica el tablero de otro.</dd>
+        <dt>tipo función</dt><dd><code>ChooseFunc</code> es "cualquier función con esta firma". Sirve para inyectar el motor real o uno falso en los tests.</dd>
+      </dl>
+    </div>
+  </section>
+
+  <footer>Armado leyendo <code>bot/</code> en <code>main</code> (<code>9cb819b</code>), 5 de noviembre de 2026. Si el código cambia, este diagrama no se actualiza solo: revisar los <code>archivo:línea</code>. Las líneas cuentan archivos <code>.go</code> sin tests. Los números de tiempo salen de <code>engine/choose.go</code>, <code>arbiter/loop.go</code> y <code>arbiter/client.go</code>; el máximo de 1 763 ms, de las 20 prácticas contra el mock de la revisión.</footer>
+</div>
+</body>
+</html>
