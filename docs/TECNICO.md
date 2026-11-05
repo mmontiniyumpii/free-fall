@@ -90,7 +90,15 @@ El motor está en `bot/internal/engine`. Su única función pública es `ChooseM
 **Orden de jugadas** (`ordering.go`). Alfa-beta poda más cuanto antes se prueba la mejor jugada.
 
 - **En la raíz,** primero se prueba la mejor columna de la profundidad anterior (D4) y después el resto, del centro hacia los bordes.
-- **En el resto del árbol,** siempre se va del centro a los bordes: `3, 4, 2, 5, 1, 6, 0, 7`. Las columnas centrales participan en más líneas posibles: la 3 y la 4 están en 4 ventanas horizontales por fila, y la 0 y la 7 en una sola.
+- **En el resto del árbol,** se va del centro a los bordes: `3, 4, 2, 5, 1, 6, 0, 7`. Las columnas centrales participan en más líneas posibles: la 3 y la 4 están en 4 ventanas horizontales por fila, y la 0 y la 7 en una sola.
+
+**Poda de jugadas perdedoras** (`search.go` y `candidates` en `ordering.go`, D16). En cada nodo interior, antes de recorrer los hijos:
+
+1. Si el que mueve gana en una jugada, el nodo vale `100 000 − (ply + 1)` y no se explora nada más.
+2. Si el rival tiene dos o más casillas ganadoras jugables, no hay defensa: el nodo vale la derrota, `−(100 000 − (ply + 2))`. Si tiene una sola, la única jugada que se explora es taparla.
+3. Las jugadas que le dejan al rival una casilla ganadora justo encima van al final del orden. No se eliminan, porque puede no haber otras.
+
+Es la técnica del solver de Pascal Pons ("anticipate losing moves"), adaptada a nuestra representación con arrays. Con ella, el motor llega a 11–13 de profundidad en el medio juego, contra 10 sin ella.
 
 **Representación interna** (`position.go`). Se usan arrays fijos: `cells[56]`, ordenado por columnas, y `heights[8]`. Las jugadas se hacen y deshacen en el lugar con `drop` y `undo`. La búsqueda no pide memoria: `TestSearchDoesNotAllocate` y el benchmark dan `0 allocs/op`. En un Apple M4 recorre entre 2 y 3 millones de posiciones por segundo, y en el medio juego llega a profundidad 10–11 con 1 500 ms.
 
@@ -236,7 +244,7 @@ Al encontrar una victoria forzada, el motor deja de profundizar. Por eso esta ju
 
 El bot gana en el turno 20 con la fila 2, columnas 0 a 3 (`winning_cells` `[[2,0],[2,1],[2,2],[2,3]]`), exactamente 9 jugadas después de la decisión del turno 12. La profundidad de cada jugada del bot baja de a dos (9, 7, 5, 3, 1), porque cada par de jugadas acerca la victoria en dos.
 
-Los valores por columna salen de un test temporal que no se commiteó: llama a `negamax` sobre este tablero para cada columna, a profundidad 1, 5, 7 y 9.
+Los valores por columna salen de un test temporal que no se commiteó: llama a `negamax` sobre este tablero para cada columna, a profundidad 1, 5, 7 y 9. Este ejemplo se midió con el motor anterior a la poda de jugadas perdedoras (D16). Con el motor actual, la cantidad de nodos y la profundidad a la que aparece la victoria forzada pueden ser menores.
 
 ## Reporte de cobertura
 
@@ -524,3 +532,127 @@ El historial necesita saber quién hizo cada jugada, y `history` solo trae colum
 
 - `npm test` en verde.
 - Un self-play contra el mock nuevo, sin errores.
+
+### D14 — Reintento del `POST /api/move` y memoria de la última decisión (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_BACKEND.md` §6 y `AGENTS.md` fijan un timeout de 5 s para el `POST /api/move`. Ante cualquier error, el loop duerme 1 s y vuelve a pedir turno.
+
+**Qué pasó.** La revisión técnica (`docs/revision-bot.md`, punto 1.1) mostró que un solo corte de red en el `POST` hace perder la partida.
+
+- El loop dormía 1 s y volvía a recibir el mismo turno.
+- El motor pensaba otra vez 1 750 ms.
+- La jugada llegaba a los **4,5 s** de la primera entrega, cuando el árbitro da 3 s.
+- Además, el timeout de 5 s del `POST` era más largo que el plazo entero del árbitro.
+
+**Qué cambia** (`internal/arbiter/loop.go`).
+
+- **Reintento inmediato.** Si el `POST` falla por la red (no por un `400` o un `409` del árbitro), se reenvía **la misma columna**, con 50 ms entre intentos, hasta que pasen **2 600 ms desde la recepción del turno** (`moveDeadline`).
+  - Es seguro: si un envío anterior sí llegó, el árbitro responde `409 not_your_turn`, que según el OpenAPI 1.0.1 no penaliza.
+- **Cada intento vence en ese límite.** Usa un `context.WithTimeout` con el tiempo que queda, con un mínimo de 300 ms. Los 5 s del cliente quedan solo como tope de respaldo.
+- **Memoria de la última decisión.** El loop guarda `game_id`, número de turno, columna y hora de recepción.
+  - Si el árbitro vuelve a entregar ese mismo turno, juega la columna guardada sin volver a pensar.
+  - El límite se sigue contando desde la primera recepción.
+  - El estado vive dentro de `RunLoop`, no en una variable de paquete.
+- **Log:** la línea de cada turno suma `attempts`. Cada reintento queda como `WARN move failed, retrying same column`.
+
+**Evidencia.**
+
+- `TestMoveIsRetriedAfterACutConnection`: el primer `POST` se corta con `Hijack` y el motor falso tarda 1 750 ms. La jugada se acepta a **1,81 s** de la primera entrega.
+- `TestMoveRetriesStopAtTheDeadlineAndTheLoopSurvives`: si todos los intentos fallan, deja de reintentar al llegar al límite y el loop vuelve a pedir turno.
+- `TestRedeliveredTurnReusesTheDecision`: un turno entregado otra vez no llama al motor.
+- `TestReceptionToMoveUnder1800ms`: pasó de la suite de auditoría a la normal. Mide de la entrega al `POST` con el motor real: **1 755 ms**.
+- `TestAuditLoopSurvivesHostileArbiter`, con `-tags audit`: de **4,504 s** pasa a **1,802 s**.
+
+### D15 — El bot abre su puerto antes del warm-up y del loop del árbitro (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_BACKEND.md` §4: `cmd/bot` hace warm-up, arranca el loop del árbitro y levanta la API local. El orden no estaba fijado.
+
+**Qué pasó.** La revisión (punto 1.3) mostró que el bot abría el puerto **después** de lanzar el loop.
+
+- Una segunda instancia en la misma máquina, por ejemplo alguien que corre `scripts/run-bot.sh` "por las dudas", llegaba a hacer long poll con nuestro token antes de morir por el puerto ocupado.
+- El supervisor la relanzaba cada ~2 s.
+- Si el árbitro le entregaba un turno a ese proceso efímero, el turno quedaba servido a un proceso que moría.
+
+**Qué cambia** (`cmd/bot/main.go`).
+
+- `main` delega en `run(ctx, cfg, warm)`.
+- `run` hace `net.Listen(":"+PORT)` **antes** del warm-up y del loop, y después sirve con `srv.Serve(ln)`.
+- Si el puerto está ocupado, termina con `ERROR bot stopped ... is another bot already running?` y código 1, sin haber hablado con el árbitro.
+- El resto del arranque no cambia.
+
+**Evidencia.**
+
+- `TestBusyPortFailsBeforeTalkingToTheArbiter`: con el puerto ocupado, un árbitro simulado recibe **0** requests. Antes del cambio recibía **2 276** en 300 ms, con `POLL_WAIT = 0`.
+- `TestRunServesHealthAndStopsOnCancel`: con el puerto libre, `run` sirve `/health` y termina sin error al cancelar.
+- A mano, con dos binarios en el mismo `PORT`: el segundo sale enseguida con código 1.
+
+**Lo que no cubre.** Dos máquinas con el mismo token. Para eso no hay fix de código: es una regla operativa (la segunda laptop, apagada; plan §8).
+
+### D16 — Poda de jugadas perdedoras dentro del árbol (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_BACKEND.md` §5: negamax con alfa-beta, con orden "centro primero" en todo el árbol. La mejora de profundidad estaba prevista para la fase 2 (bitboard y TT).
+
+**Qué pasó.** La revisión (punto 1.2) mostró que el motor perdía 5 de 20 partidas contra sí mismo limitado a profundidad 4. Todas eran finales largos, con derrotas que estaban más allá de su horizonte de 10 plies.
+
+**Qué cambia** (`internal/engine/search.go` y `ordering.go`). Se aplica en cada nodo interior; el detalle está en "Algoritmo", en el apartado de la búsqueda.
+
+- Si se puede ganar en una jugada, el nodo vale la victoria.
+- Si el rival tiene una amenaza jugable, la única jugada explorada es taparla; si tiene dos, el nodo vale la derrota.
+- Las jugadas que le dejan al rival una casilla ganadora justo encima van al final del orden.
+
+**Qué no cambia.**
+
+- La heurística y sus pesos.
+- La raíz: sigue con la red de seguridad y el orden con la mejor jugada previa.
+- Sin asignaciones: `TestSearchDoesNotAllocate` y el benchmark siguen en 0 allocs/op.
+- Sin goroutines y sin `time.Now()` por nodo.
+
+**Cómo se midió.** Con `-tags audit`, 4 partidas en paralelo y un Apple M4. `baselineChoose`, en `internal/engine/audit_test.go`, es una copia literal de la búsqueda anterior.
+
+| Criterio | Antes | Después |
+|---|---|---|
+| a. Suite táctica (`TestAuditTactics`) | 8/8 | **8/8** |
+| b. Profundidad en las mismas posiciones, a 8 / 12 / 16 / 24 fichas (`TestAuditDepth`) | 10 / 10 / 10 / 11 | **13 / 11 / 12 / 12** |
+| c. Motor nuevo contra baseline: 20 partidas, 10 aperturas de 2 jugadas con los dos colores (`TestAuditVsBaseline`) | — | **12 G / 0 E / 8 P** |
+| d. Contra `casa-aleatorio` y `casa-basico` (`TestAuditSelfPlayHouse`) | 40/40 | **40/40** |
+| e. Contra el mismo motor a profundidad 4 (`TestAuditSelfPlayDepth4`) | 15 G / 0 E / 5 P | **16 G / 0 E / 4 P** |
+
+**Detalles de la medición.**
+
+- **Velocidad.** Cada nodo hace más trabajo, así que los nodos por segundo bajan de ~2,4 M a ~2,0 M. Igual, la poda compensa con creces: con 32 fichas, la victoria forzada a 19 plies aparece en **89 ms**, contra 899 ms antes.
+- **El color pesa en el criterio c.** De las 8 derrotas del motor nuevo, 7 fueron como jugador 2.
+  - Como jugador 1, el nuevo ganó 9 de 10; baseline, 7 de 10.
+  - Como jugador 2, el nuevo ganó 3 de 10; baseline, 1 de 10.
+  - Es decir, el nuevo es mejor con los dos colores.
+- **La muestra es chica.** 20 partidas no alcanzan para afirmar una mejora con significancia estadística, pero el criterio fijado (no perder más que baseline) se cumple con margen.
+
+**Tests nuevos** (`prune_test.go`), todos con tableros dibujados:
+
+- `TestNodeWithImmediateWinStopsAtOnce`: (1), 1 nodo en lugar de 97.
+- `TestNodeFacingTwoThreatsIsLost`: (2) con dos amenazas, 1 nodo en lugar de 351.
+- `TestNodeFacingOneThreatOnlyBlocks`: (2) con una amenaza, 2 nodos en lugar de 9.
+- `TestMovesUnderARivalWinGoLast`: (3).
+
+### D17 — `TT_ENABLED` no tiene efecto: la fase 2 no se hizo (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_BACKEND.md` §5 y §7, paso 9: bitboard y tabla de transposición, apagables con `TT_ENABLED` y validados con self-play contra la versión base.
+
+**Qué pasó.** No se implementaron. `internal/config` lee y valida `TT_ENABLED`, pero ningún código lo usa. La mejora de profundidad para la noche anterior al torneo se hizo con la poda de jugadas perdedoras (D16), que no necesita estructuras nuevas y se prueba con tableros dibujados.
+
+**Qué cambia.** Nada en el código. El README ya dice que la variable está reservada y no tiene efecto.
+
+### D18 — El timeout de 5 s del `POST /api/move` es más largo que el plazo del árbitro (4 nov 2026)
+
+**Qué decía el plan.** `AGENTS.md` y `PLAN_BACKEND.md` §6: `http.Client` con 5 s para `POST /api/move`.
+
+**Qué pasó.** El árbitro da 3 000 ms desde `served_at`. Un `POST` colgado 5 s pierde la partida igual, y ese timeout no la protegía.
+
+**Qué cambia.** El cliente conserva los 5 s como tope de respaldo, para no tocar `AGENTS.md` la noche anterior. Pero desde D14 cada intento de `POST` tiene un contexto que vence a los 2 600 ms de la recepción del turno, y ese límite es el que manda.
+
+### D20 — El PDF de las bases no está en `docs/bases/` (4 nov 2026)
+
+**Qué decía el plan.** `AGENTS.md` y `PLAN_BACKEND.md` dicen que las bases están en `docs/bases/`, en PDF y en `arbitro-openapi.json`.
+
+**Qué pasó.** En el repo solo está `arbitro-openapi.json`. Por eso la revisión técnica no pudo verificar si las bases prohíben explícitamente correr más de un proceso por token (punto 1.3).
+
+**Qué cambia.** Hay que agregar el PDF a `docs/bases/` cuando alguien del equipo lo tenga a mano. Mientras tanto, la regla operativa es una sola instancia conectada al árbitro (D15).
