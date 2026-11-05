@@ -1,0 +1,5 @@
+{
+  "ok": false,
+  "error": "unknown_game",
+  "message": "La partida g_x no existe."
+}

@@ -122,6 +122,8 @@ func TestAPIErrors(t *testing.T) {
 		{"illegal move", 400, readFixture(t, "error-illegal-move.json"), "illegal_move"},
 		{"timeout", 400, readFixture(t, "error-timeout.json"), "timeout"},
 		{"not your turn", 409, readFixture(t, "error-not-your-turn.json"), "not_your_turn"},
+		{"unknown game", 409, readFixture(t, "error-unknown-game.json"), "unknown_game"},
+		{"invalid json", 400, readFixture(t, "error-invalid-json.json"), "validation"},
 		{"unauthorized", 401, readFixture(t, "error-unauthorized.json"), "unauthorized"},
 		{"server error without json", 502, []byte("<html>Bad Gateway</html>"), ""},
 	}

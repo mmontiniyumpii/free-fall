@@ -39,11 +39,19 @@ type gameResult struct {
 	Winner       *game.Player `json:"winner"` // puntero para poder serializar null en empate
 	Reason       string       `json:"reason"`
 	WinningCells [][2]int     `json:"winning_cells,omitempty"`
+	// Solo en derrotas por jugada ilegal, tiempo o ausencia. Son punteros para que omitempty
+	// los omita cuando no aplican, pero serialice un 0 real (por ejemplo, la columna 0 llena).
+	ForfeitedBy *game.Player `json:"forfeited_by,omitempty"`
+	MS          *int64       `json:"ms,omitempty"`        // timeout e illegal_move: ms desde served_at
+	Column      *int         `json:"column,omitempty"`    // illegal_move: la columna que envió el bot
+	WaitedMS    *int64       `json:"waited_ms,omitempty"` // absent: ms que el turno esperó sin que lo recogieran
 }
 
 // mockGame es una partida. Todos sus campos se leen y escriben con server.mu tomado.
 type mockGame struct {
 	id      string
+	seq     int     // orden de creación, para listar las más recientes primero
+	matchID *string // "amistoso" en los amistosos; nil en prácticas
 	kind    string
 	house   string     // rival de la casa
 	players [3]*team   // índices 1 y 2; nil = la casa
@@ -88,6 +96,12 @@ func (g *mockGame) finish(now time.Time, winner game.Player, reason string, cell
 	g.finishedAt = now
 }
 
+// forfeit cierra la partida con la derrota de loser por reason (illegal_move, timeout o absent).
+func (g *mockGame) forfeit(now time.Time, loser game.Player, reason string) {
+	g.finish(now, 3-loser, reason, nil)
+	g.result.ForfeitedBy = &loser
+}
+
 // play aplica la jugada de side. Devuelve la línea ganadora si la hubo, o el error de game.Apply si es ilegal.
 func (g *mockGame) play(now time.Time, side game.Player, col game.Column, ms int64) ([]game.Pos, error) {
 	b, row, err := game.Apply(g.board, col, side)
@@ -114,6 +128,8 @@ func (g *mockGame) play(now time.Time, side game.Player, col game.Column, ms int
 // expireAbsent aplica la derrota por ausencia si el turno lleva más de 30 s sin que el equipo lo recoja.
 func (g *mockGame) expireAbsent(now time.Time) {
 	if g.playing() && g.players[g.toMove] != nil && g.servedAt.IsZero() && now.Sub(g.availableAt) > absentAfter {
-		g.finish(now, 3-g.toMove, "absent", nil)
+		g.forfeit(now, g.toMove, "absent")
+		waited := now.Sub(g.availableAt).Milliseconds()
+		g.result.WaitedMS = &waited
 	}
 }

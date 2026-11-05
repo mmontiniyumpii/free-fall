@@ -139,6 +139,7 @@ func sameShape(t *testing.T, where string, got, want any, nullable ...string) {
 type turnResp struct {
 	Status   string     `json:"status"`
 	GameID   string     `json:"game_id"`
+	MatchID  *string    `json:"match_id"`
 	Kind     string     `json:"kind"`
 	You      int        `json:"you"`
 	Turn     int        `json:"turn"`
@@ -347,7 +348,7 @@ func TestNextValidation(t *testing.T) {
 
 func TestPracticeValidation(t *testing.T) {
 	_, ts, _ := newTestServer(t)
-	for _, body := range []string{`{}`, `{"opponent":"casa-fuerte"}`, `{"opponent":"casa-basico","first":3}`, `not json`} {
+	for _, body := range []string{`{"opponent":"casa-fuerte"}`, `{"opponent":""}`, `{"opponent":"casa-basico","first":3}`, `not json`} {
 		status, data := call(t, ts, "POST", "/api/practice", "tok", body)
 		if status != http.StatusBadRequest || asMap(t, data)["error"] != "validation" {
 			t.Errorf("body %s: %d %s, want 400 validation", body, status, data)
@@ -357,6 +358,15 @@ func TestPracticeValidation(t *testing.T) {
 	status, data := call(t, ts, "POST", "/api/practice", "tok", `{"opponent":"casa-basico"}`)
 	if status != http.StatusCreated || asMap(t, data)["you"] != float64(1) {
 		t.Errorf("sin first: %d %s, want 201 you=1", status, data)
+	}
+	// opponent también es opcional: por defecto, casa-basico.
+	status, data = call(t, ts, "POST", "/api/practice", "tok", `{}`)
+	if status != http.StatusCreated {
+		t.Fatalf("sin opponent: %d %s, want 201", status, data)
+	}
+	g := getGame(t, ts, asMap(t, data)["game_id"].(string))
+	if rival := g["players"].(map[string]any)["2"].(map[string]any)["team_id"]; rival != "casa-basico" {
+		t.Errorf("sin opponent, el rival es %v; want casa-basico", rival)
 	}
 }
 
@@ -495,7 +505,19 @@ func TestMoveWon(t *testing.T) {
 	}
 
 	g := getGame(t, ts, id)
+	// house solo aparece en el bot de la casa (schema PlayerRef): se verifica aparte del fixture, que no lo trae.
+	players := g["players"].(map[string]any)
+	if house := players["2"].(map[string]any); house["house"] != true || house["team_id"] != "casa-basico" {
+		t.Errorf("jugador de la casa = %v, want team_id casa-basico y house true", house)
+	}
+	if _, ok := players["1"].(map[string]any)["house"]; ok {
+		t.Errorf("el equipo no debe traer house: %v", players["1"])
+	}
+	delete(players["2"].(map[string]any), "house")
 	sameShape(t, "game", g, fixture(t, "game.json"), "match_id")
+	if g["current"] != nil || g["series"] != nil {
+		t.Errorf("partida terminada: current = %v, series = %v; want null", g["current"], g["series"])
+	}
 	if r := g["result"].(map[string]any); r["winner"] != float64(1) || r["reason"] != "connect4" {
 		t.Errorf("result = %v", r)
 	}
@@ -559,8 +581,9 @@ func TestMoveIllegalLosesTheGame(t *testing.T) {
 				t.Errorf("error = %v", body["error"])
 			}
 			r := getGame(t, ts, id)["result"].(map[string]any)
-			if r["reason"] != "illegal_move" || r["winner"] != float64(1) {
-				t.Errorf("result = %v, want derrota por illegal_move", r)
+			if r["reason"] != "illegal_move" || r["winner"] != float64(1) || r["forfeited_by"] != float64(2) ||
+				r["column"] != float64(tc.col) || r["ms"] == nil {
+				t.Errorf("result = %v, want derrota por illegal_move con forfeited_by 2, column %d y ms", r, tc.col)
 			}
 		})
 	}
@@ -583,19 +606,19 @@ func TestMoveValidationDoesNotLose(t *testing.T) {
 
 func TestMoveNotYourTurn(t *testing.T) {
 	_, ts, _ := newTestServer(t)
-	want := fixture(t, "error-not-your-turn.json")
-
 	status, body := move(t, ts, "tok", "g_no_existe", 0)
-	if status != http.StatusConflict {
-		t.Fatalf("partida inexistente: status %d", status)
+	if status != http.StatusConflict || body["error"] != "unknown_game" {
+		t.Fatalf("partida inexistente: %d %v, want 409 unknown_game", status, body)
 	}
-	sameShape(t, "error", body, want)
+	sameShape(t, "error", body, fixture(t, "error-unknown-game.json"))
 
 	// Partida de otro equipo.
 	id := practice(t, ts, "tok-a", "casa-basico", 1)
-	if status, body := move(t, ts, "tok-b", id, 0); status != http.StatusConflict || body["error"] != "not_your_turn" {
+	status, body = move(t, ts, "tok-b", id, 0)
+	if status != http.StatusConflict || body["error"] != "not_your_turn" {
 		t.Errorf("partida ajena: %d %v", status, body)
 	}
+	sameShape(t, "error", body, fixture(t, "error-not-your-turn.json"))
 
 	// Partida terminada.
 	move(t, ts, "tok-a", id, 9) // jugada ilegal: pierde
@@ -624,8 +647,9 @@ func TestMoveTimeout(t *testing.T) {
 		t.Fatalf("a 3001 ms: %d %v, want 400 timeout", status, body)
 	}
 	sameShape(t, "error", body, fixture(t, "error-timeout.json"))
-	if r := getGame(t, ts, id)["result"].(map[string]any); r["reason"] != "timeout" || r["winner"] != float64(2) {
-		t.Errorf("result = %v", r)
+	if r := getGame(t, ts, id)["result"].(map[string]any); r["reason"] != "timeout" || r["winner"] != float64(2) ||
+		r["forfeited_by"] != float64(1) || r["ms"] != float64(3001) {
+		t.Errorf("result = %v, want timeout con forfeited_by 1 y ms 3001", r)
 	}
 }
 
@@ -653,8 +677,9 @@ func TestAbsentLosesTheGame(t *testing.T) {
 	if _, tr, _ := next(t, ts, "tok-2"); tr.Status != "idle" {
 		t.Fatalf("a los 31 s sin recoger el turno, next = %+v; want idle", tr)
 	}
-	if r := getGame(t, ts, id2)["result"].(map[string]any); r["reason"] != "absent" || r["winner"] != float64(2) {
-		t.Errorf("result = %v, want derrota por absent", r)
+	if r := getGame(t, ts, id2)["result"].(map[string]any); r["reason"] != "absent" || r["winner"] != float64(2) ||
+		r["forfeited_by"] != float64(1) || r["waited_ms"] != float64(31000) {
+		t.Errorf("result = %v, want derrota por absent con forfeited_by 1 y waited_ms 31000", r)
 	}
 	if g := getGame(t, ts, id); g["status"] != "playing" {
 		t.Errorf("un turno ya entregado no vence por ausencia: %v", g["result"])
@@ -681,11 +706,20 @@ func TestMeAndSubmission(t *testing.T) {
 	}
 	me := asMap(t, data)
 	sameShape(t, "me", me, fixture(t, "me.json"), "submission")
+	if me["phase"] != "practice" {
+		t.Errorf("phase = %v, want practice", me["phase"])
+	}
 	if !slices.Contains(me["pending_turns"].([]any), any(id)) {
 		t.Errorf("pending_turns = %v, want que incluya %s", me["pending_turns"], id)
 	}
 
-	for _, body := range []string{`{"repo_url":"","commit":"a1b2c3d"}`, `{"repo_url":"https://github.com/x/y","commit":"abc"}`, `{"repo_url":"no-es-url","commit":"a1b2c3d"}`} {
+	for _, body := range []string{
+		`{"repo_url":"","commit":"a1b2c3d"}`,
+		`{"repo_url":"https://github.com/x/y","commit":"abc"}`,
+		`{"repo_url":"https://github.com/x/y","commit":"a1b2c3z"}`, // no es hexadecimal
+		`{"repo_url":"no-es-url","commit":"a1b2c3d"}`,
+		`{"repo_url":"https://gitlab.com/x/y","commit":"a1b2c3d"}`, // solo github.com o bitbucket.org
+	} {
 		if status, data := call(t, ts, "PUT", "/api/me/submission", "tok", body); status != http.StatusBadRequest {
 			t.Errorf("submission %s: %d %s, want 400", body, status, data)
 		}
@@ -713,6 +747,100 @@ func TestPublicEndpoints(t *testing.T) {
 	}
 	if m := asMap(t, data); m["phase"] != "practice" || m["standings"] == nil {
 		t.Errorf("standings = %v", m)
+	}
+}
+
+func TestGameWhilePlaying(t *testing.T) {
+	_, ts, _ := newTestServer(t)
+	id := practice(t, ts, "tok", "casa-basico", 2) // abre la casa: después le toca al equipo, que es el 2
+	g := getGame(t, ts, id)
+	if g["status"] != "playing" || g["current"] != float64(2) || g["series"] != nil || g["result"] != nil {
+		t.Errorf("partida en curso = %v, want status playing, current 2, series y result null", g)
+	}
+}
+
+func TestHealth(t *testing.T) {
+	_, ts, _ := newTestServer(t)
+	status, data := call(t, ts, "GET", "/api/health", "", "")
+	if status != http.StatusOK {
+		t.Fatalf("health: %d %s", status, data)
+	}
+	h := asMap(t, data)
+	sameShape(t, "health", h, fixture(t, "health.json"))
+	if h["ok"] != true || h["phase"] != "practice" || h["time"] != "2026-11-05T15:04:05.123Z" {
+		t.Errorf("health = %v", h)
+	}
+}
+
+func listGames(t *testing.T, ts *httptest.Server, query string) []map[string]any {
+	t.Helper()
+	status, data := call(t, ts, "GET", "/api/games"+query, "", "")
+	if status != http.StatusOK {
+		t.Fatalf("GET /api/games%s: %d %s", query, status, data)
+	}
+	var list []map[string]any
+	if err := json.Unmarshal(data, &list); err != nil {
+		t.Fatalf("la lista no es un array JSON: %v\n%s", err, data)
+	}
+	return list
+}
+
+func ids(list []map[string]any) []string {
+	out := make([]string, len(list))
+	for i, g := range list {
+		out[i], _ = g["game_id"].(string)
+	}
+	return out
+}
+
+func TestListGames(t *testing.T) {
+	_, ts, _ := newTestServer(t)
+	if list := listGames(t, ts, ""); len(list) != 0 {
+		t.Fatalf("sin partidas, la lista = %v; want []", list)
+	}
+	a, b := teamID(t, ts, "tok-a"), teamID(t, ts, "tok-b")
+	p1 := practice(t, ts, "tok-a", "casa-basico", 1)
+	p2 := practice(t, ts, "tok-b", "casa-aleatorio", 2)
+	_, data := call(t, ts, "POST", "/mock/friendly", "", fmt.Sprintf(`{"player1":%q,"player2":%q}`, a, b))
+	f := asMap(t, data)["game_id"].(string)
+
+	list := listGames(t, ts, "")
+	if got, want := ids(list), []string{f, p2, p1}; !slices.Equal(got, want) {
+		t.Errorf("orden = %v, want %v (más recientes primero)", got, want)
+	}
+	// GameSummary es Game sin board (allOf en el OpenAPI): mismas claves que el fixture salvo board.
+	summary := fixture(t, "game.json")
+	delete(summary, "board")
+	// El ejemplo es de una partida terminada (current null); estas están en curso, así que current es un entero.
+	summary["current"] = float64(1)
+	for _, g := range list {
+		if _, ok := g["board"]; ok {
+			t.Errorf("%s: la lista no debe traer board", g["game_id"])
+		}
+		for _, p := range g["players"].(map[string]any) {
+			delete(p.(map[string]any), "house")
+		}
+		sameShape(t, "summary", g, summary, "match_id", "result", "current", "finished_at")
+	}
+
+	if got := ids(listGames(t, ts, "?kind=practice")); !slices.Equal(got, []string{p2, p1}) {
+		t.Errorf("kind=practice: %v, want [%s %s]", got, p2, p1)
+	}
+	if got := ids(listGames(t, ts, "?kind=friendly&limit=5")); !slices.Equal(got, []string{f}) {
+		t.Errorf("kind=friendly: %v, want [%s]", got, f)
+	}
+	if got := ids(listGames(t, ts, "?limit=1")); !slices.Equal(got, []string{f}) {
+		t.Errorf("limit=1: %v, want [%s]", got, f)
+	}
+	if got := listGames(t, ts, "?kind=league"); len(got) != 0 {
+		t.Errorf("kind=league: %v, want []", got)
+	}
+
+	for _, q := range []string{"?kind=torneo", "?limit=0", "?limit=501", "?limit=abc"} {
+		status, data := call(t, ts, "GET", "/api/games"+q, "", "")
+		if status != http.StatusBadRequest || asMap(t, data)["error"] != "validation" {
+			t.Errorf("%s: %d %s, want 400 validation", q, status, data)
+		}
 	}
 }
 
@@ -766,7 +894,8 @@ func TestFriendlyBetweenTwoTeams(t *testing.T) {
 			if tr.Status != "turn" {
 				continue
 			}
-			if tr.GameID != id || tr.You != side || tr.Kind != "friendly" || tr.Board != rebuild(t, tr.Moves) {
+			if tr.GameID != id || tr.You != side || tr.Kind != "friendly" || tr.MatchID == nil || *tr.MatchID != "amistoso" ||
+				tr.Board != rebuild(t, tr.Moves) {
 				t.Fatalf("turno incoherente para el jugador %d: %s", side, raw)
 			}
 			if st, body := move(t, ts, tokens[side], id, tr.LegalMoves[0]); st != http.StatusOK {
@@ -780,7 +909,7 @@ func TestFriendlyBetweenTwoTeams(t *testing.T) {
 	}
 	g := getGame(t, ts, id)
 	players := g["players"].(map[string]any)
-	if g["status"] != "finished" || g["kind"] != "friendly" ||
+	if g["status"] != "finished" || g["kind"] != "friendly" || g["match_id"] != "amistoso" ||
 		players["1"].(map[string]any)["team_id"] != a || players["2"].(map[string]any)["team_id"] != b {
 		t.Errorf("partida = %v", g)
 	}

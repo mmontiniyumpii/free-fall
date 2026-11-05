@@ -481,3 +481,46 @@ El historial necesita saber quién hizo cada jugada, y `history` solo trae colum
 **Por qué.** Es más estricto: si cada paquete pasa el 70 %, la suma también. Con la suma, un `engine` al 95 % podría esconder un `game` al 30 %, y las bases piden cobertura de "reglas y algoritmo".
 
 **Cómo se verifica.** Lo prueba `cmd/covercheck/main_test.go`, en el caso "one package below threshold fails even if combined is above". Hoy `npm test` informa `game` al 100 % (43/43 sentencias) y `engine` al 97 % (159/164).
+
+### D13 — OpenAPI del árbitro 1.0.1, la versión final (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_BACKEND.md` §7, paso 10, prevé el jueves a las 8:00 un diff del OpenAPI definitivo contra la versión preliminar 0.9.0 de las bases.
+
+**Qué pasó.** La organización publicó la versión 1.0.1 la noche anterior, y el diff se hizo antes. El anuncio dice que no cambia ninguna ruta y que solo corrige la documentación. Al compararlas, el diff muestra más que eso:
+
+- **Rutas públicas que ahora están documentadas:** `GET /api/games` (lista sin tablero, con `kind` y `limit`), `/api/state`, `/api/live` (SSE), `/api/health` y `/api/openapi.json`.
+- **`Game` pasa a ser `GameSummary` + `board`.**
+  - Los jugadores son `PlayerRef`, con `team_id` y no `id`. Así queda resuelta la duda de D10. Además traen `house: true` cuando el jugador es un bot de la casa.
+  - Se agregan `series` y `current`.
+  - `status` suma `scheduled` y `reason` suma `admin`.
+  - `result` suma `forfeited_by`, `ms`, `column` y `waited_ms`.
+- **`POST /api/move`:** una partida inexistente responde `409 unknown_game`, y antes respondía `not_your_turn`. Un cuerpo que no es JSON válido responde `400 validation` y no penaliza.
+- **`POST /api/practice`:** `opponent` pasa a ser opcional, con `casa-basico` por defecto. Un rival inválido responde `400 validation`.
+- **Otros cambios:**
+  - `GET /api/me` trae `phase`, y `standing` puede ser `null` en los equipos de prueba.
+  - Aparece la fase `frozen`.
+  - `Submission` valida `repo_url` (solo github.com o bitbucket.org) y `commit` (hexadecimal, de 7 a 40 caracteres).
+  - En amistosos, `match_id` vale `amistoso`.
+- **`Turn` e `Idle`, lo único que usa el bot en el torneo, no cambian.**
+
+**Qué cambia en el repo.**
+
+- **`docs/bases/arbitro-openapi.json`:** se reemplaza por la 1.0.1.
+- **`internal/arbiter/testdata/`:** se vuelven a extraer los ejemplos del OpenAPI.
+  - Cambian `game.json` (con `series` y `current`) y `me.json` (con `phase`).
+  - Se suman `error-unknown-game.json`, `error-invalid-json.json` y `health.json`.
+  - El resto de los ejemplos son idénticos a los de la 0.9.0.
+- **Bot:** no cambia el código. El loop ya trata cualquier `400` o `409` de `/api/move` como "no reintentar y seguir". `TestAPIErrors` suma los casos `unknown_game` y `validation`.
+- **Mock (`cmd/mock`):** implementa todo lo anterior, con un test por cambio.
+  - Incluye `GET /api/games` y `GET /api/health`.
+  - **No implementa** `/api/state`, `/api/live` ni `/api/openapi.json`. Su schema es un objeto sin campos definidos, así que implementarlos obligaría a inventar la forma, y ni el bot ni la app los usan.
+  - **Validación de `GET /api/games`:** un `kind` o un `limit` fuera de rango responden `400 validation`. El OpenAPI no documenta ese error, así que es una decisión del mock.
+- **App (`web/src/app/replay`):**
+  - El tipo `ArbiterGame` sigue el schema nuevo.
+  - La reproducción explica las derrotas por `admin` y las partidas programadas (`scheduled`), con un test para cada caso.
+  - El test que reproduce el ejemplo del OpenAPI ya lee la 1.0.1.
+
+**Cómo se verifica.**
+
+- `npm test` en verde.
+- Un self-play contra el mock nuevo, sin errores.

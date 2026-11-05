@@ -75,7 +75,7 @@ La app necesita el bot corriendo en el puerto 3000. Cómo se juega está en el m
 
 ## Desarrollo sin el árbitro real
 
-**Mock del árbitro**, fiel a `docs/bases/arbitro-openapi.json`, en `http://localhost:4000`:
+**Mock del árbitro**, fiel a `docs/bases/arbitro-openapi.json` (versión 1.0.1, la final), en `http://localhost:4000`. Implementa todas las rutas salvo `/api/state`, `/api/live` y `/api/openapi.json`, que ni el bot ni la app usan:
 
 ```bash
 cd bot && go run ./cmd/mock                       # -addr :4000, -seed N para repetir partidas

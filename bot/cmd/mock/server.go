@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"math/rand/v2"
 	"net/http"
-	"net/url"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -48,9 +48,11 @@ func (s *server) routes() http.Handler {
 	mux.HandleFunc("POST /api/practice", s.auth(s.handlePractice))
 	mux.HandleFunc("GET /api/me", s.auth(s.handleMe))
 	mux.HandleFunc("PUT /api/me/submission", s.auth(s.handleSubmission))
-	// Públicos: sin token.
+	// Públicos: sin token. /api/state, /api/live y /api/openapi.json no están en el mock (docs/TECNICO.md, D13).
+	mux.HandleFunc("GET /api/games", s.handleGames)
 	mux.HandleFunc("GET /api/games/{game_id}", s.handleGame)
 	mux.HandleFunc("GET /api/standings", s.handleStandings)
+	mux.HandleFunc("GET /api/health", s.handleHealth)
 	// Extensión del mock, NO es parte del OpenAPI: partidas entre dos equipos para cmd/selfplay.
 	mux.HandleFunc("POST /mock/friendly", s.handleFriendly)
 	return mux
@@ -169,6 +171,7 @@ func (s *server) takeTurn(t *team) (turnResponse, bool) {
 	return turnResponse{
 		Status:     "turn",
 		GameID:     g.id,
+		MatchID:    g.matchID,
 		Kind:       g.kind,
 		You:        g.toMove,
 		Opponent:   s.nameOf(g, 3-g.toMove),
@@ -208,7 +211,12 @@ func (s *server) handleMove(w http.ResponseWriter, r *http.Request, t *team) {
 	if g != nil {
 		g.expireAbsent(now)
 	}
-	if g == nil || !g.pendingFor(t) {
+	if g == nil {
+		s.mu.Unlock()
+		s.writeError(w, http.StatusConflict, "unknown_game", fmt.Sprintf("La partida %s no existe.", *req.GameID))
+		return
+	}
+	if !g.pendingFor(t) {
 		s.mu.Unlock()
 		s.writeError(w, http.StatusConflict, "not_your_turn",
 			fmt.Sprintf("La partida %s no tiene un turno pendiente para tu equipo.", *req.GameID))
@@ -242,7 +250,12 @@ func (s *server) handleMove(w http.ResponseWriter, r *http.Request, t *team) {
 		}
 	}
 	if errCode != "" {
-		g.finish(now, 3-side, errCode, nil) // jugada rechazada: la partida se pierde
+		g.forfeit(now, side, errCode) // jugada rechazada: la partida se pierde
+		ms := elapsed.Milliseconds()
+		g.result.MS = &ms
+		if errCode == "illegal_move" {
+			g.result.Column = &col
+		}
 		s.mu.Unlock()
 		slog.Info("game finished", "game_id", g.id, "reason", errCode)
 		s.writeError(w, http.StatusBadRequest, errCode, errMsg)
@@ -279,7 +292,7 @@ func (s *server) advance(g *mockGame, now time.Time) {
 		side := g.toMove
 		if _, err := g.play(now, side, houseMove(g.house, g.board, side, s.rng), 0); err != nil {
 			slog.Error("house move", "game_id", g.id, "err", err)
-			g.finish(now, 3-side, "illegal_move", nil)
+			g.forfeit(now, side, "illegal_move")
 		}
 	}
 }
@@ -288,15 +301,19 @@ func (s *server) advance(g *mockGame, now time.Time) {
 
 func (s *server) handlePractice(w http.ResponseWriter, r *http.Request, t *team) {
 	var req struct {
-		Opponent string `json:"opponent"`
-		First    *int   `json:"first"`
+		Opponent *string `json:"opponent"` // puntero: si falta, el OpenAPI dice que es casa-basico
+		First    *int    `json:"first"`
 	}
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<16)).Decode(&req); err != nil {
 		s.writeError(w, http.StatusBadRequest, "validation", "El cuerpo debe ser JSON.")
 		return
 	}
-	if req.Opponent != houseRandom && req.Opponent != houseBasic {
-		s.writeError(w, http.StatusBadRequest, "validation", "opponent debe ser casa-aleatorio o casa-basico.")
+	opponent := houseBasic
+	if req.Opponent != nil {
+		opponent = *req.Opponent
+	}
+	if opponent != houseRandom && opponent != houseBasic {
+		s.writeError(w, http.StatusBadRequest, "validation", fmt.Sprintf("Rival inválido: %s.", opponent))
 		return
 	}
 	side := game.Player(1) // first: 1 abre el equipo, 2 abre la casa; por defecto 1
@@ -313,8 +330,9 @@ func (s *server) handlePractice(w http.ResponseWriter, r *http.Request, t *team)
 	s.created++
 	g := &mockGame{
 		id:          fmt.Sprintf("g_p_%02d", s.created),
+		seq:         s.created,
 		kind:        "practice",
-		house:       req.Opponent,
+		house:       opponent,
 		toMove:      1,
 		availableAt: now,
 		startedAt:   now,
@@ -354,7 +372,8 @@ func (s *server) handleFriendly(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := s.now()
-	g := &mockGame{kind: "friendly", toMove: 1, availableAt: now, startedAt: now}
+	friendly := "amistoso" // match_id de los amistosos según el OpenAPI 1.0.1
+	g := &mockGame{kind: "friendly", matchID: &friendly, toMove: 1, availableAt: now, startedAt: now}
 	g.players[1], g.players[2] = p1, p2
 	for _, c := range req.Opening {
 		if c < 0 || c >= game.Cols {
@@ -369,6 +388,7 @@ func (s *server) handleFriendly(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.created++
+	g.seq = s.created
 	g.id = fmt.Sprintf("g_f_%02d", s.created)
 	s.games[g.id] = g
 	s.advance(g, now) // avisa al equipo que tiene el primer turno
@@ -405,7 +425,11 @@ type meResponse struct {
 	} `json:"standing"`
 	PendingTurns []string          `json:"pending_turns"`
 	Submission   *submissionRecord `json:"submission"`
+	Phase        string            `json:"phase"`
 }
+
+// phase es la fase del torneo. El mock siempre está en prácticas: no hay liga ni playoffs.
+const phase = "practice"
 
 func (s *server) handleMe(w http.ResponseWriter, _ *http.Request, t *team) {
 	s.mu.Lock()
@@ -413,6 +437,7 @@ func (s *server) handleMe(w http.ResponseWriter, _ *http.Request, t *team) {
 	var resp meResponse
 	resp.Team.ID, resp.Team.Name, resp.Team.Members = t.id, t.name, []string{}
 	resp.PendingTurns = []string{}
+	resp.Phase = phase
 	for _, g := range s.games {
 		g.expireAbsent(now)
 		if g.pendingFor(t) {
@@ -428,6 +453,13 @@ func (s *server) handleMe(w http.ResponseWriter, _ *http.Request, t *team) {
 	s.writeJSON(w, http.StatusOK, resp)
 }
 
+// Patrones del schema Submission del OpenAPI. MustCompile entra en panic si la expresión es inválida:
+// como son constantes, eso solo puede pasar al arrancar, nunca en medio de un pedido.
+var (
+	repoURLPattern = regexp.MustCompile(`^https?://(github\.com|bitbucket\.org)/.+`)
+	commitPattern  = regexp.MustCompile(`^[0-9a-fA-F]{7,40}$`)
+)
+
 func (s *server) handleSubmission(w http.ResponseWriter, r *http.Request, t *team) {
 	var req struct {
 		RepoURL string `json:"repo_url"`
@@ -437,13 +469,12 @@ func (s *server) handleSubmission(w http.ResponseWriter, r *http.Request, t *tea
 		s.writeError(w, http.StatusBadRequest, "validation", "El cuerpo debe ser JSON.")
 		return
 	}
-	u, err := url.Parse(req.RepoURL)
-	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		s.writeError(w, http.StatusBadRequest, "validation", "repo_url debe ser una URL http(s).")
+	if !repoURLPattern.MatchString(req.RepoURL) {
+		s.writeError(w, http.StatusBadRequest, "validation", "repo_url debe ser un repositorio de github.com o bitbucket.org.")
 		return
 	}
-	if len(req.Commit) < 7 || len(req.Commit) > 40 {
-		s.writeError(w, http.StatusBadRequest, "validation", "commit debe tener entre 7 y 40 caracteres.")
+	if !commitPattern.MatchString(req.Commit) {
+		s.writeError(w, http.StatusBadRequest, "validation", "commit debe ser un hash hexadecimal de 7 a 40 caracteres.")
 		return
 	}
 
@@ -456,22 +487,67 @@ func (s *server) handleSubmission(w http.ResponseWriter, r *http.Request, t *tea
 
 // ---- Públicos ----
 
+// playerInfo es el schema PlayerRef del OpenAPI.
 type playerInfo struct {
-	TeamID string `json:"team_id"` // el ejemplo del OpenAPI usa team_id (el schema Team dice id)
+	TeamID string `json:"team_id"`
 	Name   string `json:"name"`
+	House  bool   `json:"house,omitempty"` // solo aparece (en true) para el bot de la casa
 }
 
-type gameResponse struct {
+// gameSummary es el schema GameSummary: una partida sin el tablero, como la lista GET /api/games.
+type gameSummary struct {
 	GameID     string                `json:"game_id"`
 	MatchID    *string               `json:"match_id"`
 	Kind       string                `json:"kind"`
+	Series     *string               `json:"series"` // siempre null: el mock no tiene playoffs
 	Status     string                `json:"status"`
 	Players    map[string]playerInfo `json:"players"`
 	Moves      []moveRecord          `json:"moves"`
-	Board      game.Board            `json:"board"`
+	Current    *game.Player          `json:"current"` // a quién le toca; null si la partida terminó
 	Result     *gameResult           `json:"result"`
 	StartedAt  string                `json:"started_at"`
 	FinishedAt *string               `json:"finished_at"`
+}
+
+// gameResponse es el schema Game: el resumen más el tablero. gameSummary va embebido (sin nombre de campo),
+// así que encoding/json escribe sus campos al mismo nivel que board, igual que el allOf del OpenAPI.
+type gameResponse struct {
+	gameSummary
+	Board game.Board `json:"board"`
+}
+
+// summaryOf arma el resumen de g. Requiere s.mu tomado.
+func (s *server) summaryOf(g *mockGame) gameSummary {
+	sum := gameSummary{
+		GameID:    g.id,
+		MatchID:   g.matchID,
+		Kind:      g.kind,
+		Status:    "playing",
+		Players:   map[string]playerInfo{},
+		Moves:     slices.Clone(g.moves), // copia: g.moves puede crecer mientras se serializa la respuesta
+		StartedAt: formatTime(g.startedAt),
+	}
+	if sum.Moves == nil {
+		sum.Moves = []moveRecord{}
+	}
+	for p := game.Player(1); p <= 2; p++ {
+		if t := g.players[p]; t != nil {
+			sum.Players[strconv.Itoa(int(p))] = playerInfo{TeamID: t.id, Name: t.name}
+		} else {
+			sum.Players[strconv.Itoa(int(p))] = playerInfo{TeamID: g.house, Name: g.house, House: true}
+		}
+	}
+	if g.playing() {
+		toMove := g.toMove
+		sum.Current = &toMove
+	} else {
+		res := *g.result
+		sum.Result = &res
+		sum.Status = "finished"
+		f := formatTime(g.finishedAt)
+		sum.FinishedAt = &f
+	}
+	return sum
 }
 
 func (s *server) handleGame(w http.ResponseWriter, r *http.Request) {
@@ -484,39 +560,56 @@ func (s *server) handleGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	g.expireAbsent(s.now())
-	resp := gameResponse{
-		GameID:    g.id,
-		Kind:      g.kind,
-		Status:    "playing",
-		Players:   map[string]playerInfo{},
-		Moves:     slices.Clone(g.moves), // copia: g.moves puede crecer mientras se serializa la respuesta
-		Board:     g.board,
-		StartedAt: formatTime(g.startedAt),
-	}
-	if resp.Moves == nil {
-		resp.Moves = []moveRecord{}
-	}
-	for p := game.Player(1); p <= 2; p++ {
-		name := s.nameOf(g, p)
-		id := name
-		if g.players[p] != nil {
-			id = g.players[p].id
-		}
-		resp.Players[strconv.Itoa(int(p))] = playerInfo{TeamID: id, Name: name}
-	}
-	if !g.playing() {
-		res := *g.result
-		resp.Result = &res
-		resp.Status = "finished"
-		f := formatTime(g.finishedAt)
-		resp.FinishedAt = &f
-	}
+	resp := gameResponse{gameSummary: s.summaryOf(g), Board: g.board}
 	s.mu.Unlock()
 	s.writeJSON(w, http.StatusOK, resp)
 }
 
+// gameKinds son los valores de kind que acepta GET /api/games.
+var gameKinds = []string{"practice", "friendly", "league", "third_place", "final"}
+
+// handleGames lista las partidas sin tablero, de la más reciente a la más vieja.
+func (s *server) handleGames(w http.ResponseWriter, r *http.Request) {
+	kind := r.URL.Query().Get("kind")
+	if kind != "" && !slices.Contains(gameKinds, kind) {
+		s.writeError(w, http.StatusBadRequest, "validation", "kind debe ser practice, friendly, league, third_place o final.")
+		return
+	}
+	limit := 50
+	if q := r.URL.Query().Get("limit"); q != "" {
+		n, err := strconv.Atoi(q)
+		if err != nil || n < 1 || n > 500 {
+			s.writeError(w, http.StatusBadRequest, "validation", "limit debe ser un entero entre 1 y 500.")
+			return
+		}
+		limit = n
+	}
+
+	s.mu.Lock()
+	now := s.now()
+	var games []*mockGame
+	for _, g := range s.games {
+		if kind == "" || g.kind == kind {
+			g.expireAbsent(now)
+			games = append(games, g)
+		}
+	}
+	// SortFunc ordena con una función de comparación: negativo = a va antes que b. Acá, mayor seq primero.
+	slices.SortFunc(games, func(a, b *mockGame) int { return b.seq - a.seq })
+	list := []gameSummary{} // no nil: sin partidas se responde [] y no null
+	for _, g := range games[:min(limit, len(games))] {
+		list = append(list, s.summaryOf(g))
+	}
+	s.mu.Unlock()
+	s.writeJSON(w, http.StatusOK, list)
+}
+
+func (s *server) handleHealth(w http.ResponseWriter, _ *http.Request) {
+	s.writeJSON(w, http.StatusOK, map[string]any{"ok": true, "phase": phase, "time": formatTime(s.now())})
+}
+
 func (s *server) handleStandings(w http.ResponseWriter, _ *http.Request) {
-	s.writeJSON(w, http.StatusOK, map[string]any{"phase": "practice", "standings": []any{}})
+	s.writeJSON(w, http.StatusOK, map[string]any{"phase": phase, "standings": []any{}})
 }
 
 // ---- Helpers ----

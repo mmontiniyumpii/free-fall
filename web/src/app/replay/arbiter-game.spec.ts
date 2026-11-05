@@ -89,7 +89,22 @@ describe('describeResult', () => {
     expect(describeResult(withResult({ winner: 2, reason: 'absent' }))).toBe(
       'Ganó Equipo 2: Equipo 1 no recogió su turno a tiempo.',
     );
+    expect(describeResult(withResult({ winner: 1, reason: 'admin', forfeited_by: 2 }))).toBe(
+      'Ganó Equipo 1: el árbitro le dio la partida por perdida a Equipo 2.',
+    );
     expect(describeResult(withResult(null))).toBe('Partida en curso: se ve hasta la última jugada.');
+  });
+
+  it('una partida de liga programada todavía no empezó', () => {
+    const scheduled: ArbiterGame = {
+      ...selfPlay,
+      status: 'scheduled',
+      moves: [],
+      current: null,
+      result: null,
+      started_at: null,
+    };
+    expect(describeResult(scheduled)).toBe('Partida programada: todavía no empezó.');
   });
 
   it('sin nombre de equipo usa el número de jugador', () => {

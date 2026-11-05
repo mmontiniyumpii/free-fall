@@ -2,6 +2,7 @@
   "game_id": "g_7f3a",
   "match_id": "m_12",
   "kind": "league",
+  "series": null,
   "status": "finished",
   "players": {
     "1": {
@@ -27,6 +28,7 @@
       "ms": 1490
     }
   ],
+  "current": null,
   "board": [
     [
       0,

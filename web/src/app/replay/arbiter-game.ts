@@ -4,11 +4,12 @@
 import { Cell, CellPosition, COLUMNS, GameState, Player, ROWS } from '../game/game-state';
 import { landingRow } from '../game/landing-row';
 
+/** Schema PlayerRef (OpenAPI 1.0.1). */
 export interface ArbiterTeam {
+  team_id: string;
   name: string;
-  /** El schema Team dice `id`; el ejemplo del OpenAPI y el mock usan `team_id`. */
-  id?: string;
-  team_id?: string;
+  /** Solo presente (en true) cuando el jugador es un bot de la casa. */
+  house?: true;
 }
 
 export interface ArbiterMove {
@@ -19,22 +20,30 @@ export interface ArbiterMove {
   ms?: number;
 }
 
-export type ArbiterResultReason = 'connect4' | 'draw' | 'illegal_move' | 'timeout' | 'absent';
+/** admin: el árbitro dio la partida por perdida. */
+export type ArbiterResultReason = 'connect4' | 'draw' | 'illegal_move' | 'timeout' | 'absent' | 'admin';
 
 export interface ArbiterGame {
   game_id: string;
   match_id?: string | null;
   kind: 'practice' | 'friendly' | 'league' | 'third_place' | 'final';
-  status: 'playing' | 'finished';
+  /** Serie de playoffs; null fuera de playoffs. */
+  series?: 'third' | 'final' | null;
+  /** scheduled: partida de liga que todavía no empezó. */
+  status: 'scheduled' | 'playing' | 'finished';
   players: Partial<Record<'1' | '2', ArbiterTeam>>;
   moves: ArbiterMove[];
+  /** Jugador al que le toca; null si la partida no está en curso. */
+  current?: Player | null;
   board: Cell[][];
   result?: {
     winner: Player | null;
     reason: ArbiterResultReason;
     winning_cells?: CellPosition[];
+    /** Quien perdió por jugada ilegal, tiempo, ausencia o decisión del árbitro. */
+    forfeited_by?: Player;
   } | null;
-  started_at?: string;
+  started_at?: string | null;
   finished_at?: string | null;
 }
 
@@ -96,6 +105,7 @@ export function replayFrame(game: ArbiterGame, step: number): GameState {
 /** Cómo terminó, en una frase para el panel. */
 export function describeResult(game: ArbiterGame): string {
   const result = game.result;
+  if (game.status === 'scheduled') return 'Partida programada: todavía no empezó.';
   if (!result) return 'Partida en curso: se ve hasta la última jugada.';
   if (result.winner === null) return 'Empate: se llenó el tablero.';
   const winner = teamName(game, result.winner);
@@ -111,5 +121,7 @@ export function describeResult(game: ArbiterGame): string {
       return `Ganó ${winner}: ${loser} se pasó de tiempo.`;
     case 'absent':
       return `Ganó ${winner}: ${loser} no recogió su turno a tiempo.`;
+    case 'admin':
+      return `Ganó ${winner}: el árbitro le dio la partida por perdida a ${loser}.`;
   }
 }
