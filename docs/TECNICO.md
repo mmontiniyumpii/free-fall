@@ -4,6 +4,107 @@
 >
 > Los planes **no se reescriben** después del primer commit de código: todo lo que cambie respecto a ellos se explica en la sección "Desviaciones del plan".
 
+## Arquitectura final
+
+Un solo proceso de Go (`bot/cmd/bot`) atiende el torneo y la aplicación web con el **mismo motor**, como piden las bases ("el algoritmo del torneo y el de la app deben ser el mismo código").
+
+```
+ ┌──────────────┐  GET /api/next (long poll) ┌───────────────────┐
+ │  Árbitro     │ ◄───────────────────────── │ internal/arbiter  │  goroutine del loop
+ │  (HTTPS)     │ ── POST /api/move ───────► │ cliente + loop    │  (solo si ARBITRO_URL)
+ └──────▲───────┘                            └─────────┬─────────┘
+        │ GET /api/games/{id}                          │ EngineChooser: MaxDepth = 0
+        │ (vía proxy de desarrollo)                    ▼
+ ┌──────┴───────┐   /local/games... (:3000)  ┌───────────────────┐    ┌───────────────────┐
+ │  App web     │ ─────────────────────────► │ internal/api      │───►│ internal/engine   │
+ │  (Angular,   │ ◄──────── GameState ────── │ partidas en       │    │ ChooseMove        │
+ │   :4200)     │                            │ memoria + mutex   │    │ (reentrante)      │
+ └──────────────┘                            └─────────┬─────────┘    └─────────┬─────────┘
+                    MaxDepth según la dificultad (D1)   │                        │
+                                                       ▼                        ▼
+                                             ┌──────────────────────────────────────────┐
+                                             │ internal/game — reglas puras (sin HTTP)  │
+                                             └──────────────────────────────────────────┘
+```
+
+**Arranque de `cmd/bot`.**
+
+1. Lee la configuración (`internal/config`).
+2. Hace un warm-up del motor de 1 s sobre el tablero vacío.
+3. Si está definida `ARBITRO_URL`, lanza el loop del árbitro en su propia goroutine.
+4. Siempre levanta la API local en `PORT` (3000).
+5. Ante `SIGINT` o `SIGTERM`, apaga el servidor en forma ordenada.
+
+**Capas del bot.** Cada paquete tiene una sola responsabilidad y las dependencias van en una sola dirección:
+
+| Paquete | Responsabilidad | No conoce |
+|---|---|---|
+| `internal/game` | Tablero, jugadas legales, victoria y empate | HTTP, motor |
+| `internal/engine` | `ChooseMove`: búsqueda con presupuesto de tiempo y profundidad máxima opcional | HTTP, árbitro, app |
+| `internal/arbiter` | Parseo de `/api/next`, cliente HTTP con timeouts y loop con `recover` | app |
+| `internal/api` | API local de la app (`docs/api-local.md`): partidas en memoria protegidas con `sync.Mutex` | árbitro |
+| `internal/config` | Variables de entorno y su validación | — |
+
+Herramientas que viven en el mismo módulo:
+
+- `cmd/mock`: árbitro simulado fiel al OpenAPI.
+- `cmd/selfplay`: dos motores contra el mock (D5).
+- `cmd/covercheck`: umbral de cobertura (D12).
+- `scripts/run-bot.sh` y `scripts/run-bot.ps1`: supervisor con reinicio automático.
+
+**Aplicación web (`web/`, Angular 21).** Componentes standalone con signals, sin librerías de UI.
+
+| Pieza | Rol |
+|---|---|
+| `App` | Contenedor: guarda el `GameState` que devuelve la API, la fase (inicio, partida o reproducción), los pedidos en curso y el reintento sin conexión |
+| `Board`, `Status`, `Toolbar`, `History` | Presentación: tablero e interacción, bloque de estado, acciones del panel e historial |
+| `Rules`, `Confirm`, `Confetti` | Modal de reglas, confirmación de volver al inicio y animación de victoria |
+| `Replay` | Reproducción de partidas del torneo a partir del registro público del árbitro (D10) |
+| `GameApi` | Clase abstracta implementada por `GameApiService` (HTTP real) y por `FakeGameApiService` (escenarios de prueba, D8) |
+
+**El frontend no implementa reglas.** Legalidad, ganador, línea ganadora y empate llegan en el `GameState` o en el registro del árbitro. La única excepción es la gravedad, y se usa solo para dibujar (D7).
+
+**Contratos entre las partes.**
+
+- `docs/api-local.md` y `docs/fixtures/game-state.example.json`, entre el bot y la app.
+- `docs/bases/arbitro-openapi.json`, entre el bot o la app y el árbitro.
+
+## Reporte de cobertura
+
+Se obtiene con `npm test` desde la raíz, que corre `go test ./... -race -cover`, después `covercheck` y por último los tests de Angular. Los valores son del 4 nov 2026, sobre el commit `ef8aac5`.
+
+**Bot (Go).** `covercheck` exige 70 % a `internal/game` y a `internal/engine` por separado (D12). Los dos superan el umbral con margen.
+
+| Paquete | Cobertura | Exigido |
+|---|---:|---|
+| `internal/game` (reglas) | **100,0 %** (43/43 sentencias) | ≥ 70 % |
+| `internal/engine` (algoritmo) | **97,0 %** (159/164 sentencias) | ≥ 70 % |
+| `internal/api` | 95,7 % | — |
+| `internal/arbiter` | 94,4 % | — |
+| `internal/config` | 97,6 % | — |
+| `cmd/covercheck` | 96,2 % | — |
+| `cmd/mock` | 91,7 % | — |
+| `cmd/selfplay` | 29,6 % | — |
+| `cmd/bot` | 16,7 % | — |
+
+`cmd/bot` y `cmd/selfplay` son programas de arranque. Su lógica vive en los paquetes de `internal/`, que sí están cubiertos.
+
+**Casos que piden las bases y dónde se prueban.**
+
+- **Reglas.** La caída de fichas está en `TestApply`, las jugadas legales en `TestLegalMoves` y el empate en `TestIsDraw`. `TestFindWin` cubre las cuatro direcciones: horizontal, vertical y las dos diagonales.
+- **Algoritmo.** Nunca juega ilegal (`TestNeverIllegal`) y respeta el presupuesto de tiempo (`TestRespectsBudget`). Los tableros límite están en `TestOnlyOneLegalColumn` y `TestBoardWith55Cells`.
+- **Cliente del árbitro.** El parseo usa los ejemplos del OpenAPI (`TestParseNext*`). El cliente se prueba contra un árbitro simulado con `httptest.NewServer`: construye la jugada y maneja los errores, los timeouts y el loop.
+
+**Aplicación web (Angular, Vitest).** Tiene 161 tests en verde. No reporta cobertura, porque medirla requiere agregar `@vitest/coverage-v8` (D11). Cubren, entre otras cosas:
+
+- la orientación del tablero (fila 0 abajo);
+- que una columna llena no se pueda jugar;
+- el reintento sin jugar dos veces;
+- la línea ganadora;
+- la reproducción, comparando contra el `board` del árbitro.
+
+Varios de estos tests se comprobaron rompiendo el código a propósito y viendo que fallan (ver D7, D9 y D10).
+
 ## Desviaciones del plan
 
 ### D1 — Niveles de dificultad en la API local (4 nov 2026)
