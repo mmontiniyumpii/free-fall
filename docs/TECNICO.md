@@ -649,6 +649,14 @@ El historial necesita saber quién hizo cada jugada, y `history` solo trae colum
 
 **Qué cambia.** El cliente conserva los 5 s como tope de respaldo, para no tocar `AGENTS.md` la noche anterior. Pero desde D14 cada intento de `POST` tiene un contexto que vence a los 2 600 ms de la recepción del turno, y ese límite es el que manda.
 
+### D19 — Calibración con los `ms` reales del árbitro, pendiente para el jueves (4 nov 2026)
+
+**Qué decía el plan.** `PLAN_BACKEND.md` §6 y §7, paso 10: calibrar `THINK_MS` el jueves con los `ms` que informa `GET /api/games/{id}`.
+
+**Estado.** Pendiente: se hace el jueves a las 8:00, con la primera práctica contra el árbitro real.
+
+**Criterio.** Si el `ms` máximo de la práctica supera 2 000, se baja `THINK_MS` en el `.env` de la instancia del torneo. El margen hasta 3 000 ms es la latencia de red, que en el mock con 300 ms simulados dio un máximo de 2 069 ms (D5).
+
 ### D20 — El PDF de las bases no está en `docs/bases/` (4 nov 2026)
 
 **Qué decía el plan.** `AGENTS.md` y `PLAN_BACKEND.md` dicen que las bases están en `docs/bases/`, en PDF y en `arbitro-openapi.json`.

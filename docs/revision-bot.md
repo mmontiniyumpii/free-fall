@@ -388,7 +388,7 @@ Binario `cmd/bot` de esta rama contra `cmd/mock`, con `THINK_MS=1500` y `POLL_WA
 ### Lo que quedó sin hacer
 
 - **Commits.** Hechos después, uno por caso, con los archivos de la tabla de abajo.
-- **D19 en `TECNICO.md`** (calibración con los `ms` reales). El guard de archivos secretos bloqueó la escritura, porque el texto nombra el archivo de entorno del bot. Es un falso positivo, pero no se esquivó. El texto quedó listo para pegar después de D18: está en el scratchpad de la sesión de Claude Code (`D19-pendiente.md`) y también en el resumen de la conversación.
+- **D19 en `TECNICO.md`** (calibración con los `ms` reales). Durante la noche, el guard de archivos secretos bloqueó la escritura, porque el texto nombra el archivo de entorno del bot. Era un falso positivo, pero no se esquivó. Se agregó después, a pedido de Matias, entre D18 y D20.
 - **Caso 1.2, opción B (tabla de transposición), y opción C (paridad).** No se hicieron, como estaba previsto.
 
 | Commit sugerido | Archivos |
