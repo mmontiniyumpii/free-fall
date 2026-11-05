@@ -44,18 +44,24 @@ func (s *searcher) negamax(depth, ply, alpha, beta int, who uint8) int {
 		return evaluate(&s.pos, who)
 	}
 
-	best := -infinity
+	// Poda de jugadas perdedoras (D16). Si who gana en una jugada, ese es el valor del nodo:
+	// no hace falta explorar el resto.
 	for _, c := range centerFirst {
-		if !s.pos.canPlay(c) {
-			continue
+		if s.pos.canPlay(c) && s.pos.winsWith(c, who) {
+			return winScore - (ply + 1)
 		}
+	}
+	// Si el rival tiene dos casillas ganadoras jugables, who pierde en la jugada siguiente a la suya.
+	moves, n, lost := s.pos.candidates(who)
+	if lost {
+		return -(winScore - (ply + 2))
+	}
+
+	best := -infinity
+	for _, c := range moves[:n] {
+		// Ningún hijo gana en el acto (se descartó arriba), así que no hace falta mirar wins después de drop.
 		s.pos.drop(c, who)
-		var score int
-		if s.pos.wins(c) {
-			score = winScore - (ply + 1)
-		} else {
-			score = -s.negamax(depth-1, ply+1, -beta, -alpha, 3-who)
-		}
+		score := -s.negamax(depth-1, ply+1, -beta, -alpha, 3-who)
 		s.pos.undo(c)
 		if s.stopped {
 			return 0
